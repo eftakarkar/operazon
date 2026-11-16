@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08080d">
+  <title>OPERAZON — Owner Admin Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#08080d;--panel:#12121b;--line:#292936;--muted:#a1a1aa;--green:#22c55e;--white:#f8fafc}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#17251e 0%,#08080d 52%);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--white);display:grid;place-items:center;padding:22px}
+    .wrap{width:min(100%,430px)}.brand{text-align:center;margin-bottom:26px}.logo{font-size:34px;font-weight:900;letter-spacing:2px}.logo span{color:#4ade80}.sub{color:var(--muted);font-size:13px;margin-top:7px}
+    .card{background:rgba(18,18,27,.94);border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 24px 80px #0008}.eyebrow{font-size:11px;letter-spacing:2px;color:#4ade80;font-weight:800}.title{font-size:24px;font-weight:800;margin:10px 0 7px}.desc{font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 24px}
+    label{display:block;font-size:12px;font-weight:700;margin:16px 0 8px;color:#e4e4e7}input{width:100%;height:48px;border:1px solid #343442;background:#090910;border-radius:11px;padding:0 14px;color:white;font-size:14px;outline:none}input:focus{border-color:#22c55e;box-shadow:0 0 0 3px #22c55e20}
+    button{width:100%;height:49px;border:0;border-radius:11px;background:#22c55e;color:#041108;font-weight:900;font-size:14px;margin-top:22px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.status{display:none;margin-top:16px;padding:12px;border-radius:10px;font-size:13px;line-height:1.5}.status.show{display:block}.status.error{background:#451a1a;color:#fecaca;border:1px solid #7f1d1d}.status.ok{background:#052e16;color:#bbf7d0;border:1px solid #166534}.foot{text-align:center;color:#71717a;font-size:11px;margin-top:18px}.security{display:flex;gap:9px;align-items:center;color:#a1a1aa;font-size:11px;margin-top:18px;line-height:1.5}.dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex:none}
+    .success-title{font-size:20px;font-weight:800;margin:12px 0}.hidden{display:none!important}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="brand"><div class="logo">OPERA<span>ZON</span></div><div class="sub">Owner Control Centre</div></header>
+    <section class="card" id="loginCard">
+      <div class="eyebrow">RESTRICTED ACCESS</div>
+      <h1 class="title">Owner Admin Login</h1>
+      <p class="desc">Sign in with the Owner account registered in your OPERAZON Supabase project.</p>
+      <form id="loginForm">
+        <label for="email">Owner email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="you@example.com" required>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+        <button id="loginButton" type="submit">Sign in as Owner</button>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div class="security"><span class="dot"></span><span>Access is checked against your Supabase authenticated session and the <b>is_admin()</b> database function.</span></div>
+    </section>
+    <section class="card hidden" id="successCard">
+      <div class="eyebrow">ACCESS VERIFIED</div>
+      <div class="success-title">Owner authentication successful</div>
+      <p class="desc" id="signedInAs"></p>
+      <div class="status ok show">Your account passed the Admin check. The dashboard interface will be added in the next step.</div>
+      <button id="signOutButton" type="button">Sign out</button>
+    </section>
+    <div class="foot">OPERAZON • Secure Owner Access</div>
+  </main>
+<script>
+  // Supabase project configuration. Publishable/anon keys are designed for browser use;
+  // never put a service_role or sb_secret key in this file.
+  const SUPABASE_URL = 'https://biokgmcaipanplankmlz.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fnl6m9-0bO1Vo7e10icMtw_G2GD747C';
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const loginCard = document.getElementById('loginCard');
+  const successCard = document.getElementById('successCard');
+  const statusBox = document.getElementById('status');
+  const loginButton = document.getElementById('loginButton');
+
+  function showStatus(message, type='error') {
+    statusBox.textContent = message;
+    statusBox.className = 'status show ' + type;
+  }
+  async function verifyAdmin(session) {
+    if (!session?.user) return false;
+    const { data, error } = await client.rpc('is_admin');
+    if (error) throw error;
+    return data === true;
+  }
+  function showOwner(user) {
+    loginCard.classList.add('hidden');
+    successCard.classList.remove('hidden');
+    document.getElementById('signedInAs').textContent = 'Signed in as ' + (user.email || 'Owner account') + '. Your admin permission was confirmed.';
+  }
+  document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    loginButton.disabled = true;
+    loginButton.textContent = 'Checking account…';
+    statusBox.className = 'status';
+    try {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const allowed = await verifyAdmin(data.session);
+      if (!allowed) {
+        await client.auth.signOut();
+        throw new Error('This account can sign in, but it is not authorized as an OPERAZON Admin.');
+      }
+      showOwner(data.user);
+    } catch (error) {
+      showStatus(error.message || 'Login failed. Please try again.');
+    } finally {
+      loginButton.disabled = false;
+      loginButton.textContent = 'Sign in as Owner';
+    }
+  });
+  document.getElementById('signOutButton').addEventListener('click', async () => {
+    await client.auth.signOut();
+    successCard.classList.add('hidden');
+    loginCard.classList.remove('hidden');
+    document.getElementById('password').value = '';
+    showStatus('You have signed out.', 'ok');
+  });
+  // Do not silently grant access from a stored session; re-check admin permission.
+  client.auth.getSession().then(async ({data, error}) => {
+    if (error || !data.session) return;
+    try {
+      const allowed = await verifyAdmin(data.session);
+      if (allowed) showOwner(data.session.user);
+      else await client.auth.signOut();
+    } catch (_) { await client.auth.signOut(); }
+  });
+</script>
+</body>
+</html>
