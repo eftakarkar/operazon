@@ -1589,3 +1589,1175 @@
 
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OPERAZON App — Music Video & Reels</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <!-- Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Syne', 'sans-serif'],
+                        insta: ['"Grand Hotel"', 'cursive'],
+                    },
+                    colors: {
+                        appBg: '#050508',
+                        appSurface: '#101016',
+                        appElevated: '#181822',
+                        operaPink: '#FF2A85',
+                        operaViolet: '#8B5CF6',
+                        operaCyan: '#06B6D4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .story-ring { background: linear-gradient(135deg,#16a34a,#4ade80,#15803d); }
+        .story-ring.story-viewed, .story-viewed .story-ring { background: #52525b !important; }
+
+        @media (min-width: 768px) {
+            html, body { height: 100%; min-height: 100%; overflow: hidden; }
+            body { display: flex; align-items: stretch; justify-content: stretch; }
+            #app-shell { width: 100%; max-width: none; height: 100dvh; min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+            #app-header { height: 64px; padding-left: max(28px, calc((100vw - 1180px) / 2)); padding-right: max(28px, calc((100vw - 1180px) / 2)); }
+            #app-viewport { width: 100%; }
+            #tab-home { width: 100%; max-width: 680px; margin: 0 auto; padding-bottom: 110px; }
+            #home-feed-list { width: 100%; }
+            #home-feed-list article { margin: 16px 0; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; overflow: hidden; }
+            #app-viewport > #tab-explore, #app-viewport > #tab-library { max-width: 1100px; margin-left: auto; margin-right: auto; }
+            #app-viewport > #tab-profile { max-width: 1000px; margin-left: auto; margin-right: auto; }
+            #app-shell > nav { justify-content: center; gap: clamp(32px, 7vw, 100px); height: 68px; }
+            #app-shell > nav .nav-tab-btn, #app-shell > nav > button { width: 52px; }
+            #dm-drawer > div { max-width: 760px; height: min(86vh, 820px); border-radius: 22px; }
+            #user-profile-overlay { max-width: 1100px; left: 50%; right: auto; width: min(100%, 1100px); transform: translateX(-50%); }
+        }
+        @media (min-width: 1200px) {
+            #tab-home { max-width: 700px; }
+        }
+        html, body { height: 100dvh; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .reels-snap-container { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+        .reel-snap-item { scroll-snap-align: start; scroll-snap-stop: always; }
+
+        @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spinSlow 8s linear infinite; }
+        .paused-spin { animation-play-state: paused; }
+
+        @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ptr-spinning { animation: spinFast 0.8s linear infinite; }
+    </style>
+</head>
+<body class="bg-black text-zinc-100 font-sans antialiased flex items-center justify-center">
+
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xs px-4"></div>
+
+    <div id="app-shell" class="relative w-full h-[100dvh] sm:h-[94dvh] sm:max-w-[440px] bg-appBg sm:rounded-[38px] sm:border sm:border-white/15 sm:shadow-[0_0_80px_rgba(139,92,246,0.2)] flex flex-col overflow-hidden">
+
+        <!-- Header -->
+        <header id="app-header" class="relative shrink-0 z-30 bg-[#0B0E11]/95 backdrop-blur-xl px-4 h-14 flex items-center justify-between">
+            <button onclick="openSettingsDrawer()" class="p-1.5 text-white hover:opacity-80 active:scale-95 transition-transform cursor-pointer" aria-label="Settings Menu">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <line x1="4" y1="9" x2="20" y2="9" />
+                    <line x1="4" y1="15" x2="13" y2="15" />
+                </svg>
+            </button>
+
+            <div class="relative">
+                <button onclick="toggleHeaderMenu()" class="flex items-center text-white cursor-pointer active:opacity-80" aria-label="Feed Switcher">
+                    <span id="header-brand-label" class="font-insta text-[29px] tracking-[0.03em] text-white leading-none pt-1">Operazon</span>
+                </button>
+                <div id="header-dropdown-menu" class="hidden absolute left-1/2 -translate-x-1/2 mt-2.5 w-40 rounded-2xl bg-appElevated border border-white/15 shadow-2xl py-1.5 z-50 text-xs font-semibold">
+                    <button onclick="selectHeaderFeed('home', 'Operazon')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer">
+                        <span>For You</span>
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-operaPink"></i>
+                    </button>
+                    <button onclick="selectHeaderFeed('reels', 'Reels')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer">
+                        <span>Music Reels</span>
+                        <i data-lucide="clapperboard" class="w-3.5 h-3.5 text-operaCyan"></i>
+                    </button>
+                    <button onclick="selectHeaderFeed('explore', 'Explore')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer">
+                        <span>Explore</span>
+                        <i data-lucide="compass" class="w-3.5 h-3.5 text-operaViolet"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="openNotificationsDrawer()" class="relative p-1.5 text-white hover:opacity-80 active:scale-95 transition-transform cursor-pointer" aria-label="Music Notifications">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9.5" cy="17.5" r="3.2" />
+                    <path d="M12.7 17.5V5.5l5.8 3" />
+                </svg>
+                <span id="notif-dot" class="hidden absolute top-1.5 right-1 w-2.5 h-2.5 rounded-full bg-[#FF3040] ring-2 ring-[#0B0E11]"></span>
+            </button>
+        </header>
+
+        <div id="app-viewport" class="relative flex-1 overflow-y-auto no-scrollbar bg-appBg">
+            <!-- Home Tab -->
+            <section id="tab-home" class="app-tab-view pb-36 relative">
+                <div id="ptr-indicator" class="absolute left-1/2 -translate-x-1/2 -top-12 z-20 flex items-center justify-center w-8 h-8 rounded-full bg-appElevated border border-white/20 shadow-xl transition-all duration-200">
+                    <svg id="ptr-spinner" class="w-4 h-4 text-operaPink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
+                </div>
+                <div id="home-feed-list" class="divide-y divide-white/10"></div>
+            </section>
+
+            <!-- Reels Tab -->
+            <section id="tab-reels" class="app-tab-view hidden h-full w-full overflow-y-auto reels-snap-container no-scrollbar bg-black"></section>
+
+            <!-- Explore Tab -->
+            <section id="tab-explore" class="app-tab-view hidden p-4 pb-36 space-y-5">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input id="app-search-input" type="search" autocomplete="off" placeholder="Search users, artists, songs..." class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-appElevated border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-operaPink">
+                </div>
+                <div id="universal-search-results" class="hidden space-y-4"></div>
+                <div id="explore-discovery-content">
+                    <div>
+                        <h3 class="font-display font-bold text-sm text-white mb-2.5">Trending Playlists &amp; Mixes</h3>
+                        <div id="explore-playlists" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-display font-bold text-sm text-white mb-2.5">Discover Visuals</h3>
+                        <div id="explore-grid" class="grid grid-cols-3 gap-1.5 rounded-2xl overflow-hidden"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Library Tab -->
+            <section id="tab-library" class="app-tab-view hidden p-4 pb-36 space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display font-extrabold text-lg text-white">Library &amp; Studio</h2>
+                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">$4,820.50 Earned</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2.5">
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10">
+                        <span class="text-[10px] text-zinc-400 block">Video Views</span>
+                        <span class="font-display font-extrabold text-base text-white">418K</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10">
+                        <span class="text-[10px] text-zinc-400 block">Audio Plays</span>
+                        <span class="font-display font-extrabold text-base text-operaCyan">1.24M</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10">
+                        <span class="text-[10px] text-zinc-400 block">Reels Loops</span>
+                        <span class="font-display font-extrabold text-base text-operaPink">892K</span>
+                    </div>
+                </div>
+                <div class="space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-zinc-400">Your Playlists</h3>
+                        <button onclick="createNewPlaylist()" class="text-xs font-semibold text-operaCyan cursor-pointer">+ New</button>
+                    </div>
+                    <div id="library-playlists-list" class="space-y-2.5"></div>
+                </div>
+            </section>
+
+            <!-- Profile Tab -->
+            <section id="tab-profile" class="app-tab-view hidden pb-36">
+                <div class="h-24 bg-gradient-to-r from-operaPink via-operaViolet to-operaCyan"></div>
+                <div class="px-4 pb-4 -mt-9">
+                    <div class="flex items-end justify-between">
+                        <div class="w-20 h-20 rounded-full border-4 border-appBg overflow-hidden bg-zinc-900 shadow-xl">
+                            <!-- Profile Image -->
+                            <img id="main-profile-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" alt="eftakar" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openCreateModal()" class="px-3.5 py-1.5 rounded-xl bg-appElevated border border-white/10 text-xs font-semibold text-white cursor-pointer">+ Drop Track</button>
+                            <button onclick="openEditProfileModal()" class="p-2 rounded-xl bg-appElevated border border-white/10 text-zinc-300 cursor-pointer"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <div class="mt-2.5">
+                        <h2 class="font-display font-extrabold text-base text-white flex items-center gap-1">
+                            eftakar <i data-lucide="badge-check" class="w-4 h-4 text-operaCyan fill-current"></i>
+                        </h2>
+                        <p id="main-profile-bio" class="text-xs text-zinc-400 mt-0.5">Producer &bull; Visual Director &bull; Official OPERAZON Creator</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 my-4 py-2.5 rounded-2xl bg-appSurface border border-white/10 text-center">
+                        <div><span class="font-bold text-sm text-white block">24.8K</span><span class="text-[10px] text-zinc-400">Followers</span></div>
+                        <div><span class="font-bold text-sm text-white block">312</span><span class="text-[10px] text-zinc-400">Following</span></div>
+                        <div><span class="font-bold text-sm text-white block">1.9M</span><span class="text-[10px] text-zinc-400">Total Plays</span></div>
+                    </div>
+                    <div id="profile-media-grid" class="grid grid-cols-3 gap-1 rounded-xl overflow-hidden"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Mini Player -->
+        <div id="mini-player-bar" onclick="openFullPlayer()" class="shrink-0 z-30 mx-2.5 mb-2 px-3 py-2 rounded-2xl bg-appElevated/95 backdrop-blur-xl border border-white/15 flex items-center justify-between gap-2.5 shadow-2xl cursor-pointer">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <img id="mini-thumb" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=200&auto=format&fit=crop" alt="Track" class="w-10 h-10 rounded-xl object-cover shrink-0">
+                <div class="min-w-0">
+                    <div id="mini-title" class="font-bold text-xs text-white truncate">Neon Pulse Overdrive</div>
+                    <div id="mini-artist" class="text-[11px] text-operaCyan truncate">kairo &bull; Tap to expand</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+                <button onclick="togglePlayback()" class="w-9 h-9 rounded-full bg-white text-appBg flex items-center justify-center cursor-pointer" aria-label="Play/Pause">
+                    <i id="mini-play-icon" data-lucide="play" class="w-4 h-4 fill-current ml-0.5"></i>
+                </button>
+                <button onclick="nextTrack()" class="p-2 text-zinc-300 hover:text-white cursor-pointer" aria-label="Next">
+                    <i data-lucide="skip-forward" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <nav class="shrink-0 z-30 bg-appBg/95 backdrop-blur-xl border-t border-white/10 h-15 py-2.5 px-3 flex items-center justify-around">
+            <button data-tab="home" class="nav-tab-btn flex items-center justify-center text-white cursor-pointer w-12 h-11" aria-label="Home Feed">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9.5" cy="17.5" r="3.5" />
+                    <path d="M13 17.5V5.5l5.5 3.2" />
+                </svg>
+            </button>
+            <button data-tab="reels" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Music Reels">
+                <i data-lucide="clapperboard" class="w-6 h-6"></i>
+            </button>
+            <button onclick="openDmDrawer()" class="relative flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Personal Messages">
+                <i data-lucide="send" class="w-6 h-6"></i>
+                <span id="dm-dot" class="hidden absolute top-2 right-2.5 w-2 h-2 rounded-full bg-operaPink"></span>
+            </button>
+            <button data-tab="explore" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Search">
+                <i data-lucide="search" class="w-6 h-6"></i>
+            </button>
+            <button data-tab="profile" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Profile">
+                <div class="w-6 h-6 rounded-full overflow-hidden border border-white/50">
+                    <img id="nav-profile-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop" alt="Profile" class="w-full h-full object-cover">
+                </div>
+            </button>
+        </nav>
+
+        <!-- Full Player -->
+        <div id="full-player-sheet" class="fixed sm:absolute inset-0 z-40 bg-appBg flex flex-col justify-between p-5 transition-transform duration-300 translate-y-full">
+            <div class="flex items-center justify-between">
+                <button onclick="closeFullPlayer()" class="p-2 rounded-full bg-white/10 text-white cursor-pointer" aria-label="Minimize">
+                    <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                </button>
+                <div class="flex items-center bg-appElevated p-1 rounded-full border border-white/10 text-[11px] font-bold">
+                    <button data-exp="video" class="sheet-exp-btn px-3 py-1 rounded-full bg-operaViolet text-white cursor-pointer">VIDEO</button>
+                    <button data-exp="audio" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">AUDIO</button>
+                    <button data-exp="reels" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">REELS</button>
+                </div>
+                <button onclick="openCommentsDrawer(tracks[activeTrackIndex].id)" class="p-2 rounded-full bg-white/10 text-white cursor-pointer" aria-label="Comments">
+                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="relative w-full aspect-square max-h-[310px] mx-auto rounded-3xl overflow-hidden bg-black border border-white/15 shadow-2xl flex items-center justify-center">
+                <canvas id="sheet-visualizer-canvas" class="w-full h-full block"></canvas>
+                <div id="sheet-audio-badge" class="hidden absolute inset-0 bg-gradient-to-br from-operaPink/30 via-appBg/90 to-operaViolet/30 flex flex-col items-center justify-center p-6 text-center">
+                    <div id="vinyl-disc" class="w-28 h-28 rounded-full border-4 border-operaCyan/50 overflow-hidden shadow-2xl animate-spin-slow paused-spin mb-3">
+                        <img id="sheet-cover-img" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=400&auto=format&fit=crop" alt="Cover" class="w-full h-full object-cover">
+                    </div>
+                    <span class="px-2.5 py-0.5 rounded-full bg-operaCyan/20 text-operaCyan text-[10px] font-bold uppercase">24-Bit Lossless Audio</span>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 id="sheet-title" class="font-display font-extrabold text-xl text-white truncate">Neon Pulse Overdrive</h2>
+                        <p id="sheet-artist" class="text-xs text-zinc-400">kairo &bull; Electronic</p>
+                    </div>
+                    <button onclick="toggleActiveLike()" class="p-2.5 rounded-full bg-white/5 text-operaPink cursor-pointer">
+                        <i id="sheet-like-icon" data-lucide="heart" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="space-y-1">
+                    <div class="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                        <div class="h-full w-2/5 bg-gradient-to-r from-operaPink to-operaCyan rounded-full"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-mono text-zinc-400">
+                        <span>1:08</span>
+                        <span>2:48</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between px-4">
+                    <button onclick="showToast('Shuffle enabled')" class="text-zinc-400 hover:text-white cursor-pointer"><i data-lucide="shuffle" class="w-5 h-5"></i></button>
+                    <button onclick="prevTrack()" class="text-white cursor-pointer"><i data-lucide="skip-back" class="w-7 h-7 fill-current"></i></button>
+                    <button onclick="togglePlayback()" class="w-16 h-16 rounded-full bg-gradient-to-tr from-operaPink to-operaViolet text-white flex items-center justify-center shadow-xl shadow-operaPink/30 cursor-pointer">
+                        <i id="sheet-play-icon" data-lucide="play" class="w-7 h-7 fill-current ml-0.5"></i>
+                    </button>
+                    <button onclick="nextTrack()" class="text-white cursor-pointer"><i data-lucide="skip-forward" class="w-7 h-7 fill-current"></i></button>
+                    <button onclick="showToast('Sent $5 Super-Tip to artist!')" class="px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer">Tip $5</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Drawer -->
+        <div id="create-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-base text-white">Create &amp; Drop</h3>
+                    <button onclick="closeCreateModal()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <form id="create-track-form" class="space-y-3">
+                    <input id="drop-title" type="text" required placeholder="Track or Video Title..." class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <input id="drop-artist" type="text" required placeholder="Artist Name" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                        <select id="drop-genre" class="w-full px-3 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white">
+                            <option value="Electronic">Electronic</option>
+                            <option value="Hip-Hop">Hip-Hop</option>
+                            <option value="Indie">Indie</option>
+                            <option value="Afrobeats">Afrobeats</option>
+                        </select>
+                    </div>
+                    <!-- Video/Image Upload Input -->
+                    <div class="p-3 rounded-2xl bg-appElevated border border-white/10">
+                        <label class="text-[11px] text-zinc-400 block mb-1">Upload Video or Image from Gallery</label>
+                        <input id="drop-video-file" type="file" accept="video/*,image/*" class="w-full text-xs text-white file:mr-3 file:py-2 file:px-3 file:rounded-full file:border-0 file:text-[11px] file:font-semibold file:bg-operaCyan file:text-appBg cursor-pointer" />
+                    </div>
+                    <input id="drop-caption" type="text" placeholder="Reel overlay caption" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-xs cursor-pointer">
+                        Publish to Feed, Audio &amp; Reels
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Profile Drawer -->
+        <div id="edit-profile-modal" class="fixed inset-0 z-[95] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div class="w-full max-w-sm rounded-3xl bg-appSurface border border-white/15 p-5 space-y-4 shadow-2xl">
+                <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                    <h3 class="font-display font-bold text-white text-base">Edit Profile</h3>
+                    <button onclick="document.getElementById('edit-profile-modal').classList.add('hidden')" class="p-1.5 rounded-full bg-white/10 text-zinc-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <form id="edit-profile-form" class="space-y-4">
+                    <div class="flex items-center gap-4">
+                        <img id="edit-preview-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" class="w-16 h-16 rounded-full object-cover border-2 border-operaPink">
+                        <div class="flex-1">
+                            <label class="text-[11px] text-zinc-400 block mb-1">Update Profile Picture</label>
+                            <input type="file" id="edit-avatar-file" accept="image/*" class="w-full text-xs text-white file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[11px] file:font-semibold file:bg-operaPink file:text-white cursor-pointer" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">Display Name</label>
+                        <input type="text" id="edit-display-name" placeholder="Full Name" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-operaPink" required />
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">Bio</label>
+                        <textarea id="edit-bio" placeholder="Tell us about yourself..." class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-operaPink" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-sm cursor-pointer shadow-lg shadow-operaPink/20">
+                        Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Comments Drawer -->
+        <div id="comments-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-3 max-h-[75%] flex flex-col">
+                <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                    <span class="font-display font-bold text-sm text-white">Comments</span>
+                    <button onclick="closeCommentsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div id="drawer-comments-list" class="flex-1 overflow-y-auto space-y-2.5 py-1"></div>
+                <form id="drawer-comment-form" class="flex gap-2 pt-1">
+                    <input id="drawer-comment-input" type="text" required placeholder="Add a comment..." class="flex-1 px-4 py-2.5 rounded-full bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <button type="submit" class="px-4 py-2.5 rounded-full bg-operaPink text-white font-bold text-xs cursor-pointer">Post</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- DM Drawer -->
+        <div id="dm-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div class="w-full sm:max-w-md h-[92%] sm:h-[88%] rounded-t-3xl sm:rounded-3xl bg-appSurface border border-white/10 flex flex-col overflow-hidden">
+                <section id="dm-inbox-view" class="flex flex-col h-full min-h-0">
+                    <header class="px-4 pt-4 pb-3 border-b border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2"><h3 class="font-display font-extrabold text-xl text-white">Messages</h3><i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400"></i></div>
+                            <div class="flex items-center gap-4"><button aria-label="New message" onclick="startNewDm()" class="text-white"><i data-lucide="square-pen" class="w-5 h-5"></i></button><button onclick="closeDmDrawer()" aria-label="Close messages" class="text-zinc-400"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+                        </div>
+                        <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-appElevated text-zinc-400"><i data-lucide="search" class="w-4 h-4"></i><input id="dm-search" oninput="renderDmInbox()" placeholder="Search" class="w-full bg-transparent outline-none text-sm text-white" /></label>
+                    </header>
+                    <div class="px-4 pt-4 pb-2"><div class="flex gap-4 overflow-x-auto" id="dm-notes-row">
+                        <div class="shrink-0 w-14 text-center"><div class="w-14 h-14 rounded-full border border-white/20 p-0.5"><div class="w-full h-full rounded-full bg-gradient-to-br from-operaPink to-operaViolet flex items-center justify-center text-white text-xl">＋</div></div><p class="text-[10px] text-zinc-400 mt-1 truncate">Your note</p></div>
+                        <div id="dm-story-strip" class="flex gap-4"></div>
+                    </div></div>
+                    <div class="px-4 pt-3 pb-2 flex items-center justify-between"><span class="font-bold text-sm text-white">Messages</span><button class="text-xs text-operaCyan">Requests</button></div>
+                    <div id="dm-conversation-list" class="flex-1 overflow-y-auto"></div>
+                </section>
+                <section id="dm-chat-view" class="hidden flex-col h-full min-h-0">
+                    <header class="px-3 py-3 flex items-center gap-3 border-b border-white/10">
+                        <button onclick="backToDmInbox()" aria-label="Back to inbox" class="text-white p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <button id="dm-chat-story-trigger" class="story-ring p-[2px] rounded-full" onclick="openUserStory(activeDmId)"><img id="dm-chat-avatar" class="w-9 h-9 rounded-full object-cover border-2 border-appSurface" src="" /></button>
+                        <div class="min-w-0 flex-1"><button id="dm-chat-name" onclick="openUserProfile(activeDmId)" class="font-bold text-sm text-white text-left"></button><p id="dm-chat-status" class="text-[10px] text-zinc-400">Active now</p></div>
+                        <button class="text-white p-2"><i data-lucide="phone" class="w-5 h-5"></i></button><button class="text-white p-2"><i data-lucide="video" class="w-5 h-5"></i></button><button class="text-white p-2"><i data-lucide="info" class="w-5 h-5"></i></button>
+                    </header>
+                    <div id="drawer-dm-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 text-sm"></div>
+                    <form id="drawer-dm-form" class="p-3 border-t border-white/10 flex items-center gap-2">
+                        <button type="button" class="text-operaPink p-2"><i data-lucide="camera" class="w-5 h-5"></i></button>
+                        <input id="drawer-dm-input" type="text" required placeholder="Message..." class="flex-1 px-4 py-3 rounded-full bg-appElevated border border-white/10 text-sm text-white focus:outline-none focus:border-operaPink" />
+                        <button type="submit" class="text-operaCyan font-bold text-sm px-2">Send</button>
+                    </form>
+                </section>
+            </div>
+        </div>
+
+        <!-- User Profile Overlay -->
+        <div id="user-profile-overlay" class="fixed sm:absolute inset-0 z-[70] hidden bg-black flex-col overflow-y-auto pb-24">
+            <header class="sticky top-0 z-20 h-14 px-4 flex items-center gap-4 bg-black/95 backdrop-blur border-b border-white/10">
+                <button onclick="closeUserProfile()" class="text-white p-1" aria-label="Back"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <span id="user-profile-header" class="font-bold text-white text-sm">Profile</span>
+                <button class="ml-auto text-white p-2" onclick="openEditProfileModal()"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
+            </header>
+            <div class="relative h-44 shrink-0 bg-gradient-to-r from-[#FF2A85] via-[#8B5CF6] to-[#06B6D4]"></div>
+            <section class="px-4 relative">
+                <div class="flex items-end justify-between -mt-[42px] gap-3">
+                    <button id="user-profile-story-button" data-story-user="" onclick="openUserStory(activeProfileId)" class="story-ring shrink-0 w-[140px] h-[140px] rounded-full p-[4px] bg-black shadow-xl" aria-label="View profile story">
+                        <img id="user-profile-avatar" class="w-full h-full rounded-full object-cover border-[5px] border-black" />
+                    </button>
+                    <div class="flex items-center gap-2 pb-1">
+                        <button onclick="profileDropTrack()" class="rounded-2xl bg-[#17171f] border border-white/10 text-white font-bold text-sm px-4 py-3">＋ Drop Track</button>
+                        <button onclick="showToast('Profile link copied')" class="rounded-2xl bg-[#17171f] border border-white/10 text-white p-3" aria-label="Share profile"><i data-lucide="share-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <h2 class="flex items-center gap-2 text-white font-extrabold text-2xl">
+                        <span id="user-profile-name"></span>
+                        <i id="user-profile-verified" data-lucide="badge-check" class="hidden w-6 h-6 text-cyan-400 fill-cyan-400"></i>
+                    </h2>
+                    <p id="user-profile-bio" class="text-zinc-400 text-sm mt-2 leading-6">Artist • Music creator • Official OPERAZON Creator</p>
+                    <div class="flex gap-2 mt-4">
+                        <button id="user-profile-follow" onclick="toggleProfileFollow()" class="flex-1 rounded-xl bg-emerald-500 text-black font-bold text-sm py-2.5">Follow</button>
+                        <button onclick="profileMessage()" class="flex-1 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm py-2.5">Message</button>
+                    </div>
+                </div>
+                <div class="mt-7 rounded-[26px] border border-white/10 bg-[#111116] px-3 py-5 grid grid-cols-3 text-center">
+                    <div><b id="user-profile-followers" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Followers</span></div>
+                    <div><b id="user-profile-following" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Following</span></div>
+                    <div><b id="user-profile-plays" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Total Plays</span></div>
+                </div>
+            </section>
+            <div class="mt-6 border-y border-white/10 grid grid-cols-3 text-center py-3 text-zinc-400">
+                <i data-lucide="grid-3x3" class="w-5 h-5 mx-auto text-white"></i>
+                <i data-lucide="clapperboard" class="w-5 h-5 mx-auto"></i>
+                <i data-lucide="music-2" class="w-5 h-5 mx-auto"></i>
+            </div>
+            <div id="user-profile-grid" class="grid grid-cols-3 gap-1 px-4"></div>
+        </div>
+
+        <!-- Story Viewer -->
+        <div id="story-viewer" class="fixed sm:absolute inset-0 z-[80] hidden bg-black items-center justify-center">
+            <div class="relative w-full h-full sm:max-w-[440px] sm:max-h-[820px] bg-zinc-950 overflow-hidden">
+                <img id="story-image" class="absolute inset-0 w-full h-full object-cover" />
+                <div class="absolute inset-x-3 top-3 z-10"><div class="h-1 rounded-full bg-white/30 overflow-hidden"><div class="h-full w-full bg-emerald-400"></div></div><div class="flex items-center gap-2 mt-3"><img id="story-avatar" class="w-9 h-9 rounded-full border-2 border-emerald-400 object-cover"/><span id="story-name" class="text-white text-sm font-bold"></span><span class="text-white/70 text-xs">• 2h</span><button onclick="closeUserStory()" class="ml-auto text-white p-2"><i data-lucide="x" class="w-6 h-6"></i></button></div></div>
+                <button onclick="closeUserStory()" class="absolute inset-0" aria-label="Close story"></button>
+                <div class="absolute bottom-5 inset-x-4 z-10 flex gap-2"><input placeholder="Reply to story..." class="flex-1 rounded-full border border-white/60 bg-black/30 px-4 py-3 text-sm text-white outline-none"/><button onclick="showToast('Story reaction sent')" class="text-emerald-400"><i data-lucide="heart" class="w-6 h-6"></i></button></div>
+            </div>
+        </div>
+
+        <!-- Settings Drawer -->
+        <div id="settings-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <span class="font-display font-bold text-sm text-white">App Settings</span>
+                    <button onclick="closeSettingsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="space-y-2.5 text-xs">
+                    <div class="p-3.5 rounded-2xl bg-appElevated border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-bold text-white">OPERAZON Account</div>
+                                <div id="account-session-label" class="text-[11px] text-zinc-400">Not connected</div>
+                            </div>
+                            <span id="account-status-pill" class="px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]">OFFLINE</span>
+                        </div>
+                        <button id="account-open-auth" onclick="openAccountAuth()" class="w-full p-3 rounded-xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold">Sign in / Create account</button>
+                        <button id="account-signout" onclick="operazonSignOut()" class="hidden w-full p-2.5 rounded-xl bg-white/10 text-white font-semibold">Sign out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Modal -->
+        <div id="account-auth-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div class="w-full max-w-sm rounded-3xl bg-appSurface border border-white/15 p-5 space-y-4 shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <div><h2 class="font-display font-extrabold text-lg text-white">OPERAZON Account</h2><p class="text-xs text-zinc-400">Sign in or create your account</p></div>
+                    <button onclick="closeAccountAuth()" class="p-2 rounded-full bg-white/10 text-zinc-300" aria-label="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="auth-mode-login" onclick="setAccountAuthMode('login')" class="rounded-xl py-2.5 text-xs font-bold bg-operaPink text-white">Sign in</button>
+                    <button id="auth-mode-signup" onclick="setAccountAuthMode('signup')" class="rounded-xl py-2.5 text-xs font-bold bg-white/10 text-zinc-300">Create account</button>
+                </div>
+                <form id="operazon-auth-form" class="space-y-3">
+                    <input id="auth-username" type="text" autocomplete="username" placeholder="Unique username" minlength="3" maxlength="24" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-display-name" type="text" autocomplete="name" placeholder="Full name" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-email" type="text" autocomplete="username" required placeholder="Username or Gmail address" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Password" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <p id="auth-feedback" class="text-xs text-zinc-400" aria-live="polite"></p>
+                    <button id="auth-submit" type="submit" class="w-full rounded-xl py-3 bg-gradient-to-r from-operaPink to-operaViolet text-sm font-extrabold text-white">Sign in</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notifications Drawer -->
+        <div id="notifications-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full h-[72%] rounded-t-3xl bg-appSurface border-t border-white/15 p-5 flex flex-col">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="music" class="w-4 h-4 text-operaPink"></i>
+                        <span class="font-display font-bold text-sm text-white">Music Notifications</span>
+                    </div>
+                    <button onclick="closeNotificationsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-2.5 py-3 text-xs">
+                    <div onclick="closeNotificationsDrawer(); selectTrack(1, true, true);" class="p-3 rounded-2xl bg-appElevated flex items-center gap-3 cursor-pointer">
+                        <div class="w-9 h-9 rounded-full bg-operaPink/20 text-operaPink flex items-center justify-center shrink-0"><i data-lucide="disc-3" class="w-4 h-4"></i></div>
+                        <div class="flex-1">
+                            <p class="text-white"><span class="font-bold">kairo</span> dropped a new 4K Music Video: <span class="text-operaCyan font-semibold">Neon Pulse Overdrive</span></p>
+                            <span class="text-[10px] text-zinc-400">2m ago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- Supabase Initialization ---
+        const OPERAZON_SUPABASE_URL = 'https://biokgmcaipanplankmlz.supabase.co';
+        const OPERAZON_SUPABASE_ANON_KEY = 'sb_publishable_fnl6m9-0bO1Vo7e10icMtw_G2GD747C';
+        const operazonSupabase = window.supabase.createClient(OPERAZON_SUPABASE_URL, OPERAZON_SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } });
+        let operazonAuthMode = 'login';
+        let operazonCurrentUser = null;
+
+        // --- UI Auth Handlers ---
+        function openAccountAuth() {
+            closeSettingsDrawer();
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            setAccountAuthMode(operazonCurrentUser ? 'login' : operazonAuthMode);
+        }
+        function closeAccountAuth() {
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+        function setAccountAuthMode(mode) {
+            operazonAuthMode=mode;
+            const signup=mode==='signup';
+            document.getElementById('auth-username').classList.toggle('hidden',!signup);
+            document.getElementById('auth-username').required=signup;
+            document.getElementById('auth-display-name').classList.toggle('hidden',!signup);
+            document.getElementById('auth-display-name').required=signup;
+            document.getElementById('auth-password').autocomplete=signup?'new-password':'current-password';
+            document.getElementById('auth-submit').textContent=signup?'Create account':'Sign in';
+            document.getElementById('auth-mode-login').className='rounded-xl py-2.5 text-xs font-bold '+(!signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-mode-signup').className='rounded-xl py-2.5 text-xs font-bold '+(signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-feedback').textContent='';
+        }
+
+        function updateOperazonAccountUI(user) {
+            operazonCurrentUser=user||null;
+            const label=document.getElementById('account-session-label');
+            const pill=document.getElementById('account-status-pill');
+            const open=document.getElementById('account-open-auth');
+            const signout=document.getElementById('account-signout');
+            if(user) {
+                label.textContent=user.email||'Signed in'; pill.textContent='CONNECTED';
+                pill.className='px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]';
+                open.textContent='Account connected'; open.classList.add('opacity-70');
+                signout.classList.remove('hidden');
+                // Update UI with user data
+                if (user.user_metadata?.display_name) document.getElementById('main-profile-avatar').src = user.user_metadata.avatar_url || document.getElementById('main-profile-avatar').src;
+            } else {
+                label.textContent='Not connected'; pill.textContent='OFFLINE';
+                pill.className='px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]';
+                open.textContent='Sign in / Create account'; open.classList.remove('opacity-70');
+                signout.classList.add('hidden');
+            }
+        }
+
+        async function syncOperazonProfile(user, displayName='') {
+            if(!user) return;
+            const metadataName=user.user_metadata?.display_name || displayName || (user.email ? user.email.split('@')[0] : 'OPERAZON User');
+            const username=user.user_metadata?.username || ''; 
+            const {error}=await operazonSupabase.from('profiles').upsert({
+                id:user.id, display_name:metadataName, ...(username ? {username} : {}), created_at:user.created_at || new Date().toISOString()
+            },{onConflict:'id',ignoreDuplicates:true});
+            if(error) {
+                console.error('OPERAZON profile sync error:',error);
+                document.getElementById('auth-feedback').textContent='Signed in, but profile sync failed: '+error.message;
+            }
+        }
+
+        // --- Auth Form Submit ---
+        document.getElementById('operazon-auth-form').addEventListener('submit',async (event)=>{
+            event.preventDefault();
+            const email=document.getElementById('auth-email').value.trim();
+            const password=document.getElementById('auth-password').value;
+            const displayName=document.getElementById('auth-display-name').value.trim();
+            const username=document.getElementById('auth-username').value.trim().toLowerCase();
+            const submit=document.getElementById('auth-submit');
+            const feedback=document.getElementById('auth-feedback');
+            submit.disabled=true; submit.textContent='Please wait...'; feedback.textContent='Connecting securely...';
+            try {
+                let result;
+                if(operazonAuthMode==='signup') {
+                    if(!/^[a-z0-9._]{3,30}$/.test(username)) throw new Error('Username must be 3–30 characters.');
+                    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address.');
+                    result=await operazonSupabase.auth.signUp({email,password,options:{data:{display_name:displayName,username}}});
+                    if(result.error) throw result.error;
+                    if(result.data.session) {
+                        await syncOperazonProfile(result.data.user,displayName);
+                        updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('OPERAZON account created');
+                    } else {
+                        feedback.textContent='Account created. Check your email to confirm, then sign in.';
+                    }
+                } else {
+                    const loginId=email.trim();
+                    if(loginId.includes('@')) {
+                        result=await operazonSupabase.auth.signInWithPassword({email:loginId,password});
+                        if(result.error) throw result.error;
+                        await syncOperazonProfile(result.data.user);
+                    } else {
+                        throw new Error("Please use a valid email to sign in.");
+                    }
+                    updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('Welcome back to OPERAZON');
+                }
+            } catch(error) {
+                feedback.textContent=(error.message||'Unable to connect.').replace('User already registered','This email is already registered.');
+            } finally {
+                submit.disabled=false; submit.textContent=operazonAuthMode==='signup'?'Create account':'Sign in';
+            }
+        });
+
+        async function operazonSignOut() {
+            const {error}=await operazonSupabase.auth.signOut();
+            if(error) { showToast(error.message); return; }
+            updateOperazonAccountUI(null); closeSettingsDrawer(); showToast('Signed out');
+        }
+
+        operazonSupabase.auth.onAuthStateChange((event,session)=>{
+            const user=session?.user||null; updateOperazonAccountUI(user);
+            if(user && event==='SIGNED_IN') setTimeout(()=>syncOperazonProfile(user),0);
+        });
+        operazonSupabase.auth.getSession().then(({data,error})=>{
+            if(error) console.error('Supabase session check:',error);
+            const user=data?.session?.user||null; updateOperazonAccountUI(user);
+            if(user) syncOperazonProfile(user);
+        });
+
+        // --- Track Data ---
+        let tracks = [
+            {
+                id: 1, title: 'Neon Pulse Overdrive (Official 4K)', artist: 'kairo', genre: 'Electronic',
+                views: '1.2M views • 2d ago', likes: 12400, liked: false, accent: '#FF2A85',
+                thumb: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop',
+                avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop',
+                caption: 'The sound of a new generation. Out everywhere now 🎵🔥',
+                reelCaption: 'POV: Driving through Neo-Tokyo at 2AM',
+                notes: ['F#3', 'A3', 'C#4', 'E4', 'F#4'],
+                comments: [{ user: 'synth_queen', text: 'That bass drop at 1:12 is pure cinema!' }]
+            },
+            {
+                id: 2, title: 'Velvet Skyline (Rooftop Live)', artist: 'maya', genre: 'Indie',
+                views: '856K views • 5d ago', likes: 8920, liked: true, accent: '#06B6D4',
+                thumb: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=900&auto=format&fit=crop',
+                avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=120&auto=format&fit=crop',
+                caption: 'One-take sunset session recorded live in Tokyo ✨',
+                reelCaption: 'One-take rooftop vocal session ✨',
+                notes: ['C4', 'E4', 'G4', 'B4', 'D5'],
+                comments: [{ user: 'indie_soul', text: 'Golden hour cinematography + live vocals = perfection.' }]
+            },
+            {
+                id: 3, title: '808 Cyber Samurai (Visualizer)', artist: 'drift', genre: 'Hip-Hop',
+                views: '430K views • 1w ago', likes: 19300, liked: false, accent: '#8B5CF6',
+                thumb: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=900&auto=format&fit=crop',
+                avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=120&auto=format&fit=crop',
+                caption: 'Turn the subwoofers up for this one 🎧⚡',
+                reelCaption: 'When the 808 distortion hits 👀',
+                notes: ['D3', 'F3', 'A3', 'C4', 'D4'],
+                comments: []
+            }
+        ];
+
+        let playlists = [
+            { title: 'Midnight Cyber Drive', count: '24 tracks', gradient: 'from-operaPink to-operaViolet' },
+            { title: 'Afro-Fusion 2026', count: '18 tracks', gradient: 'from-amber-500 to-operaPink' },
+            { title: 'Rooftop Acoustic', count: '31 tracks', gradient: 'from-operaCyan to-blue-600' }
+        ];
+
+        let activeTrackIndex = 0;
+        let isPlaying = false;
+        let activeCommentTrackId = 1;
+
+        // --- Tone.js Audio Engine ---
+        let synth = null;
+        let loopEvent = null;
+        let step = 0;
+
+        async function togglePlayback(forcePlay = null) {
+            const target = forcePlay !== null ? forcePlay : !isPlaying;
+            if (target) {
+                try {
+                    await Tone.start();
+                    if (!synth) {
+                        const reverb = new Tone.Reverb({ decay: 2.2, wet: 0.3 }).toDestination();
+                        synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.04, decay: 0.25, sustain: 0.2, release: 0.8 }, volume: -12 }).connect(reverb);
+                    }
+                    if (!loopEvent) {
+                        loopEvent = new Tone.Loop((time) => {
+                            const track = tracks[activeTrackIndex];
+                            synth.triggerAttackRelease(track.notes[step % track.notes.length], '8n', time);
+                            step++;
+                        }, '8n').start(0);
+                    }
+                    Tone.Transport.start();
+                } catch (e) { console.error(e); }
+                isPlaying = true;
+            } else {
+                if (Tone.Transport.state === 'started') Tone.Transport.pause();
+                isPlaying = false;
+            }
+            syncPlayIcons();
+        }
+
+        function syncPlayIcons() {
+            const icon = isPlaying ? 'pause' : 'play';
+            document.getElementById('mini-play-icon').setAttribute('data-lucide', icon);
+            document.getElementById('sheet-play-icon').setAttribute('data-lucide', icon);
+            const disc = document.getElementById('vinyl-disc');
+            if (disc) isPlaying ? disc.classList.remove('paused-spin') : disc.classList.add('paused-spin');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function formatNum(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString(); }
+        function showToast(msg) {
+            const box = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'px-4 py-2.5 rounded-full bg-appElevated/95 border border-operaPink/50 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-opacity duration-300';
+            el.textContent = msg;
+            box.appendChild(el);
+            setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2200);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.app-tab-view').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById('tab-' + tabName);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+                const active = btn.dataset.tab === tabName;
+                btn.className = active ? 'nav-tab-btn flex items-center justify-center text-white cursor-pointer w-12 h-11' : 'nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11';
+            });
+        }
+
+        function toggleHeaderMenu() { document.getElementById('header-dropdown-menu').classList.toggle('hidden'); }
+        function selectHeaderFeed(tabName, label) {
+            document.getElementById('header-brand-label').textContent = label;
+            document.getElementById('header-dropdown-menu').classList.add('hidden');
+            switchTab(tabName);
+        }
+        document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+        function selectTrack(id, autoPlay = true, openSheet = false) {
+            const idx = tracks.findIndex(t => t.id === id);
+            if (idx === -1) return;
+            activeTrackIndex = idx;
+            const t = tracks[idx];
+
+            document.getElementById('mini-thumb').src = t.thumb;
+            document.getElementById('mini-title').textContent = t.title;
+            document.getElementById('mini-artist').textContent = `${t.artist} • Tap to expand`;
+
+            document.getElementById('sheet-title').textContent = t.title;
+            document.getElementById('sheet-artist').textContent = `${t.artist} • ${t.genre}`;
+            document.getElementById('sheet-cover-img').src = t.thumb;
+
+            if (autoPlay) togglePlayback(true);
+            if (openSheet) openFullPlayer();
+        }
+
+        function playAudioMode(id) { selectTrack(id, true, true); setSheetExp('audio'); }
+        function nextTrack() { selectTrack(tracks[(activeTrackIndex + 1) % tracks.length].id, true); }
+        function prevTrack() { selectTrack(tracks[(activeTrackIndex - 1 + tracks.length) % tracks.length].id, true); }
+
+        // --- Render UI Elements ---
+        function renderHomeFeed(filterText = '') {
+            const list = document.getElementById('home-feed-list');
+            const filtered = tracks.filter(t => t.title.toLowerCase().includes(filterText.toLowerCase()) || t.artist.toLowerCase().includes(filterText.toLowerCase()));
+
+            list.innerHTML = filtered.map(t => `
+                <article class="py-3.5 space-y-2.5 bg-[#0B0E11]">
+                    <div class="px-3.5 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <button data-story-user="${t.artist.toLowerCase()}" onclick="openUserStoryByName('${t.artist}')" class="story-ring p-[2px] rounded-full shrink-0"><span class="block p-[2px] rounded-full bg-[#0B0E11]"><img src="${t.avatar}" alt="${t.artist}" class="w-9 h-9 rounded-full object-cover block"></span></button>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1">
+                                    <button onclick="openUserProfileByName('${t.artist}')" class="font-bold text-[14px] text-white tracking-tight truncate">${t.artist}</button>
+                                    <svg class="w-4 h-4 text-[#0095F6] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.8 4.2L18.4 3.8L19.6 7.2L22.6 9.2L21.6 12.7L22.6 16.2L19.6 18.2L18.4 21.6L14.8 21.2L12 23.4L9.2 21.2L5.6 21.6L4.4 18.2L1.4 16.2L2.4 12.7L1.4 9.2L4.4 7.2L5.6 3.8L9.2 4.2L12 2ZM10.4 16.2L17.1 9.5L15.7 8.1L10.4 13.4L8.1 11.1L6.7 12.5L10.4 16.2Z"/></svg>
+                                </div>
+                                <div class="text-[12px] text-zinc-300 font-medium truncate">
+                                    <span class="views-time-ticker transition-opacity duration-200" data-views="${t.views.split('•')[0].trim()}" data-time="${(t.views.split('•')[1] || 'Just now').trim().toUpperCase().replace('AGO', 'ago')}">${t.views.split('•')[0].trim()}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="showToast('Options for ${t.artist}')" class="p-1.5 text-white hover:opacity-80 cursor-pointer"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9" /><line x1="11" y1="15" x2="20" y2="15" /></svg></button>
+                        </div>
+                    </div>
+                    <div onclick="selectTrack(${t.id}, true, true)" class="relative aspect-video w-full bg-black overflow-hidden cursor-pointer group">
+                        <img src="${t.thumb}" alt="${t.title}" class="w-full h-full object-cover group-active:scale-105 transition-transform duration-300">
+                        <div class="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <div class="w-12 h-12 rounded-full bg-black/70 backdrop-blur-md border border-white/25 flex items-center justify-center text-white"><i data-lucide="play" class="w-5 h-5 fill-current ml-0.5"></i></div>
+                        </div>
+                        <span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-mono font-bold text-white">4K &bull; 2:48</span>
+                    </div>
+                    <div class="px-3.5 pt-0.5 flex items-center justify-between gap-2">
+                        <div class="text-[13px] font-bold text-white tracking-tight truncate">${t.title.replace(/\s*\(.*?\)/, '')} <span class="text-zinc-500 font-normal mx-1">|</span> <span class="text-white font-semibold">${t.artist}</span></div>
+                        <button onclick="playAudioMode(${t.id})" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-operaCyan/15 text-operaCyan text-[11px] font-bold cursor-pointer"><i data-lucide="headphones" class="w-3.5 h-3.5"></i><span>Audio</span></button>
+                    </div>
+                </article>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderReels() {
+            const container = document.getElementById('tab-reels');
+            container.innerHTML = tracks.map(t => `
+                <div class="reel-snap-item relative w-full h-full bg-black flex flex-col justify-between p-4 overflow-hidden">
+                    <img src="${t.thumb}" alt="${t.title}" class="absolute inset-0 w-full h-full object-cover opacity-70">
+                    <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
+                    <div class="relative z-10 flex justify-between items-center">
+                        <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">Reels &bull; ${t.genre}</span>
+                        <button onclick="playAudioMode(${t.id})" class="px-3 py-1 rounded-full bg-operaPink text-white text-[11px] font-bold cursor-pointer">Play Audio</button>
+                    </div>
+                    <div class="relative z-10 flex items-end justify-between gap-3 pb-16">
+                        <div class="space-y-2 max-w-[78%]">
+                            <div class="flex items-center gap-2">
+                                <button data-story-user="${t.artist.toLowerCase()}" onclick="openUserStoryByName('${t.artist}')" class="story-ring p-[2px] rounded-full"><img src="${t.avatar}" class="w-8 h-8 rounded-full border-2 border-black object-cover"></button>
+                                <button onclick="openUserProfileByName('${t.artist}')" class="font-bold text-xs text-white">${t.artist}</button>
+                            </div>
+                            <p class="text-xs font-medium text-white drop-shadow">${t.reelCaption}</p>
+                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-[10px] text-white"><i data-lucide="music" class="w-3 h-3 text-operaCyan"></i><span class="truncate">${t.title}</span></div>
+                        </div>
+                        <div class="flex flex-col items-center gap-4">
+                            <button onclick="toggleTrackLike(${t.id})" class="flex flex-col items-center gap-1 text-white cursor-pointer"><i data-lucide="heart" class="w-6 h-6 ${t.liked ? 'text-operaPink fill-current' : ''}"></i><span class="text-[10px] font-bold">${formatNum(t.likes)}</span></button>
+                            <button onclick="openCommentsDrawer(${t.id})" class="flex flex-col items-center gap-1 text-white cursor-pointer"><i data-lucide="message-circle" class="w-6 h-6"></i><span class="text-[10px] font-bold">${t.comments.length}</span></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderExploreAndLibrary() {
+            document.getElementById('explore-playlists').innerHTML = playlists.map(p => `
+                <div onclick="selectTrack(1, true, true)" class="p-3.5 rounded-2xl bg-gradient-to-br ${p.gradient} space-y-1 cursor-pointer">
+                    <div class="font-display font-bold text-xs text-white">${p.title}</div>
+                    <div class="text-[10px] text-white/80">${p.count}</div>
+                </div>
+            `).join('');
+
+            const gridHTML = tracks.concat(tracks).slice(0, 6).map(t => `
+                <div onclick="selectTrack(${t.id}, true, true)" class="aspect-square bg-zinc-900 relative overflow-hidden cursor-pointer"><img src="${t.thumb}" class="w-full h-full object-cover"></div>
+            `).join('');
+            document.getElementById('explore-grid').innerHTML = gridHTML;
+            document.getElementById('profile-media-grid').innerHTML = gridHTML;
+
+            document.getElementById('library-playlists-list').innerHTML = playlists.map(p => `
+                <div onclick="selectTrack(1, true, true)" class="p-3 rounded-2xl bg-appSurface border border-white/10 flex items-center gap-3 cursor-pointer">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-br ${p.gradient} flex items-center justify-center shrink-0"><i data-lucide="list-music" class="w-5 h-5 text-white"></i></div>
+                    <div><div class="font-bold text-xs text-white">${p.title}</div><div class="text-[11px] text-zinc-400">${p.count} &bull; Multi-format</div></div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function toggleTrackLike(id) {
+            const t = tracks.find(x => x.id === id);
+            if (!t) return;
+            t.liked = !t.liked;
+            t.likes += t.liked ? 1 : -1;
+            renderHomeFeed();
+            renderReels();
+        }
+
+        function toggleActiveLike() { toggleTrackLike(tracks[activeTrackIndex].id); showToast('Updated liked tracks'); }
+        function openFullPlayer() { document.getElementById('full-player-sheet').classList.remove('translate-y-full'); resizeSheetCanvas(); }
+        function closeFullPlayer() { document.getElementById('full-player-sheet').classList.add('translate-y-full'); }
+
+        function setSheetExp(mode) {
+            document.querySelectorAll('.sheet-exp-btn').forEach(b => {
+                b.className = b.dataset.exp === mode ? 'sheet-exp-btn px-3 py-1 rounded-full bg-operaViolet text-white cursor-pointer' : 'sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer';
+            });
+            const audioBadge = document.getElementById('sheet-audio-badge');
+            mode === 'audio' ? audioBadge.classList.remove('hidden') : audioBadge.classList.add('hidden');
+        }
+        document.querySelectorAll('.sheet-exp-btn').forEach(b => b.addEventListener('click', () => setSheetExp(b.dataset.exp)));
+
+        function openCreateModal() { document.getElementById('create-drawer').classList.remove('hidden'); document.getElementById('create-drawer').classList.add('flex'); }
+        function closeCreateModal() { document.getElementById('create-drawer').classList.add('hidden'); document.getElementById('create-drawer').classList.remove('flex'); }
+
+        // --- Upload Video / Track Form Submit Logic ---
+        document.getElementById('create-track-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!operazonCurrentUser) return showToast("Please sign in to upload!");
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.textContent = "Uploading...";
+            submitBtn.disabled = true;
+
+            const title = document.getElementById('drop-title').value.trim();
+            const artist = document.getElementById('drop-artist').value.trim() || operazonCurrentUser.user_metadata?.username || 'eftakar';
+            const genre = document.getElementById('drop-genre').value;
+            const caption = document.getElementById('drop-caption').value.trim() || 'Fresh release on OPERAZON 🔥';
+            const videoFileInput = document.getElementById('drop-video-file');
+
+            let videoThumb = 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop'; // Default cover
+
+            try {
+                if (videoFileInput.files.length > 0) {
+                    const file = videoFileInput.files[0];
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${operazonCurrentUser.id}-${Date.now()}.${fileExt}`;
+
+                    // Upload to Supabase Storage
+                    const { error: uploadError } = await operazonSupabase.storage.from('videos').upload(fileName, file, { contentType: file.type });
+                    if (uploadError) throw new Error("Video upload failed: " + uploadError.message);
+
+                    const { data: urlData } = operazonSupabase.storage.from('videos').getPublicUrl(fileName);
+                    videoThumb = urlData.publicUrl; // Set uploaded image/video as cover
+                }
+
+                const newTrack = {
+                    id: Date.now(), title, artist, genre, views: 'Just now', likes: 1, liked: true, accent: '#FF2A85',
+                    thumb: videoThumb, 
+                    avatar: document.getElementById('main-profile-avatar').src,
+                    caption, reelCaption: caption, notes: ['G3', 'Bb3', 'D4', 'F4', 'G4'], comments: []
+                };
+
+                tracks.unshift(newTrack);
+                e.target.reset();
+                closeCreateModal();
+                renderHomeFeed();
+                renderReels();
+                renderExploreAndLibrary();
+                selectTrack(newTrack.id, true, true);
+                showToast('Published successfully!');
+
+            } catch (error) {
+                showToast(error.message);
+            } finally {
+                submitBtn.textContent = "Publish to Feed, Audio & Reels";
+                submitBtn.disabled = false;
+            }
+        });
+
+        function openCommentsDrawer(trackId) {
+            activeCommentTrackId = trackId;
+            const t = tracks.find(x => x.id === trackId);
+            const list = document.getElementById('drawer-comments-list');
+            list.innerHTML = t.comments.length
+                ? t.comments.map(c => `<div class="p-2.5 rounded-xl bg-appElevated text-xs"><span class="font-bold text-operaCyan">${c.user}</span> <span class="text-zinc-200">${c.text}</span></div>`).join('')
+                : `<p class="text-xs text-zinc-500 text-center py-4">No comments yet.</p>`;
+            document.getElementById('comments-drawer').classList.remove('hidden'); document.getElementById('comments-drawer').classList.add('flex');
+        }
+        function closeCommentsDrawer() { document.getElementById('comments-drawer').classList.add('hidden'); document.getElementById('comments-drawer').classList.remove('flex'); }
+        document.getElementById('drawer-comment-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const inp = document.getElementById('drawer-comment-input');
+            const t = tracks.find(x => x.id === activeCommentTrackId);
+            t.comments.push({ user: 'eftakar', text: inp.value.trim() });
+            inp.value = '';
+            openCommentsDrawer(t.id);
+            renderHomeFeed();
+            renderReels();
+        });
+
+        // --- Profile Edit Logic ---
+        function openEditProfileModal() {
+            if (!operazonCurrentUser) {
+                showToast("Please sign in first!");
+                openAccountAuth();
+                return;
+            }
+            // Pre-fill existing data
+            document.getElementById('edit-display-name').value = operazonCurrentUser.user_metadata?.display_name || '';
+            document.getElementById('edit-bio').value = operazonCurrentUser.user_metadata?.bio || '';
+            document.getElementById('edit-preview-avatar').src = operazonCurrentUser.user_metadata?.avatar_url || document.getElementById('main-profile-avatar').src;
+            
+            document.getElementById('edit-profile-modal').classList.remove('hidden');
+            document.getElementById('edit-profile-modal').classList.add('flex');
+        }
+
+        // Handle Avatar File Selection Preview
+        document.getElementById('edit-avatar-file').addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('edit-preview-avatar').src = e.target.result;
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Edit Profile Form Submit
+        document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!operazonCurrentUser) return;
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.textContent = "Saving...";
+            submitBtn.disabled = true;
+
+            const displayName = document.getElementById('edit-display-name').value.trim();
+            const bio = document.getElementById('edit-bio').value.trim();
+            const fileInput = document.getElementById('edit-avatar-file');
+            
+            let avatarUrl = null;
+
+            try {
+                // 1. Upload Image to Supabase Storage
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${operazonCurrentUser.id}-${Date.now()}.${fileExt}`;
+
+                    const { error: uploadError } = await operazonSupabase.storage
+                        .from('avatars')
+                        .upload(fileName, file, { upsert: true });
+
+                    if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
+
+                    const { data: urlData } = operazonSupabase.storage.from('avatars').getPublicUrl(fileName);
+                    avatarUrl = urlData.publicUrl;
+                }
+
+                // 2. Update Supabase Auth Metadata (so we can retrieve it easily later)
+                const authUpdates = { data: { display_name: displayName, bio: bio } };
+                if (avatarUrl) authUpdates.data.avatar_url = avatarUrl;
+                
+                const { error: authError } = await operazonSupabase.auth.updateUser(authUpdates);
+                if (authError) throw new Error("Auth update failed: " + authError.message);
+
+                // 3. Update Database Table (profiles)
+                const dbUpdates = { display_name: displayName, bio: bio, updated_at: new Date() };
+                if (avatarUrl) dbUpdates.avatar_url = avatarUrl;
+
+                const { error: dbError } = await operazonSupabase.from('profiles').update(dbUpdates).eq('id', operazonCurrentUser.id);
+                if (dbError) throw new Error("Database update failed: " + dbError.message);
+
+                // 4. Update Local UI
+                showToast("Profile updated successfully!");
+                document.getElementById('main-profile-bio').textContent = bio || 'Artist • Music creator';
+                if (avatarUrl) {
+                    document.getElementById('main-profile-avatar').src = avatarUrl;
+                    document.getElementById('nav-profile-avatar').src = avatarUrl;
+                    document.getElementById('user-profile-avatar').src = avatarUrl;
+                }
+
+                document.getElementById('edit-profile-modal').classList.add('hidden');
+                document.getElementById('edit-profile-modal').classList.remove('flex');
+
+            } catch (error) {
+                showToast(error.message);
+            } finally {
+                submitBtn.textContent = "Save Changes";
+                submitBtn.disabled = false;
+            }
+        });
+
+        // --- DMs and Profile Data ---
+        const dmConversations = [
+            { id:'kairo', name:'kairo', handle:'@kairo.wav', avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120', active:true, unread:true, preview:'Sent you the 24-bit audio stems 🎧', time:'2m', messages:[{from:'them',text:'Yo! Just sent you the 24-bit audio stems for Neon Pulse Overdrive.'}] },
+            { id:'maya', name:'Maya Rose', handle:'@mayarose', avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120', active:true, unread:true, preview:'Loved your latest reel ❤️', time:'18m', messages:[{from:'them',text:'Loved your latest reel ❤️'}] }
+        ];
+        let activeDmId = null;
+        let activeProfileId = null;
+
+        function getSocialUser(id) {
+            const c = dmConversations.find(x => x.id === id);
+            if (c) return c;
+            const t = tracks.find(x => x.artist.toLowerCase() === String(id).toLowerCase());
+            return t ? {id:t.artist.toLowerCase(), name:t.artist, handle:'@'+t.artist, avatar:t.avatar, active:false} : dmConversations[0];
+        }
+
+        function openUserProfile(id) {
+            const u=getSocialUser(id); activeProfileId=u.id;
+            document.getElementById('user-profile-header').textContent=u.handle || '@'+u.name.toLowerCase().replace(/\s+/g,'');
+            document.getElementById('user-profile-name').textContent=u.name;
+            document.getElementById('user-profile-avatar').src=u.avatar;
+            document.getElementById('user-profile-bio').textContent = u.bio || (u.name==='Studio Team'?'Official OPERAZON creator support': 'Artist • Music creator • Official OPERAZON Creator');
+            
+            const grid=document.getElementById('user-profile-grid');
+            const items=tracks.filter(t=>t.artist.toLowerCase()===u.name.toLowerCase());
+            grid.innerHTML=(items.length?items:tracks.slice(0,6)).map(t=>`<button onclick="closeUserProfile();selectTrack(${t.id},true,true)" class="aspect-square relative overflow-hidden rounded-sm"><img src="${t.thumb}" class="w-full h-full object-cover"><span class="absolute bottom-2 right-2 text-white text-xs drop-shadow">▶</span></button>`).join('');
+            
+            document.getElementById('user-profile-overlay').classList.remove('hidden'); 
+            document.getElementById('user-profile-overlay').classList.add('flex');
+            if(window.lucide) lucide.createIcons();
+        }
+        function openUserProfileByName(name) { const u=dmConversations.find(c=>c.name.toLowerCase()===name.toLowerCase()||c.id===name.toLowerCase()); openUserProfile(u?u.id:name.toLowerCase()); }
+        function closeUserProfile(){const el=document.getElementById('user-profile-overlay');el.classList.add('hidden');el.classList.remove('flex');}
+
+        // DM / Story Open Stubs
+        function openDmDrawer() { document.getElementById('dm-drawer').classList.remove('hidden'); document.getElementById('dm-drawer').classList.add('flex'); }
+        function closeDmDrawer() { document.getElementById('dm-drawer').classList.add('hidden'); document.getElementById('dm-drawer').classList.remove('flex'); }
+        function openSettingsDrawer() { document.getElementById('settings-drawer').classList.remove('hidden'); document.getElementById('settings-drawer').classList.add('flex'); }
+        function closeSettingsDrawer() { document.getElementById('settings-drawer').classList.add('hidden'); document.getElementById('settings-drawer').classList.remove('flex'); }
+        function openNotificationsDrawer() { document.getElementById('notifications-drawer').classList.remove('hidden'); document.getElementById('notifications-drawer').classList.add('flex'); }
+        function closeNotificationsDrawer() { document.getElementById('notifications-drawer').classList.add('hidden'); document.getElementById('notifications-drawer').classList.remove('flex'); }
+        function openUserStory() { showToast("Story viewer demo"); }
+
+        // --- Visualizer ---
+        const canvas = document.getElementById('sheet-visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        let phase = 0;
+        function resizeSheetCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width || 300;
+            canvas.height = rect.height || 300;
+        }
+        function animateVisualizer() {
+            phase += isPlaying ? 0.08 : 0.02;
+            const t = tracks[activeTrackIndex];
+            const accent = t ? t.accent : '#FF2A85';
+            ctx.fillStyle = '#07070B'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const bars = 36; const barW = (canvas.width * 0.78) / bars; const startX = (canvas.width - bars * barW) / 2; const midY = canvas.height * 0.5;
+            for (let i = 0; i < bars; i++) {
+                const amp = isPlaying ? 24 + Math.abs(Math.sin(i * 0.35 + phase) * Math.cos(i * 0.2 - phase)) * 110 : 10 + Math.abs(Math.sin(i * 0.3 + phase)) * 18;
+                ctx.fillStyle = i % 2 === 0 ? accent : '#06B6D4';
+                ctx.beginPath(); ctx.roundRect(startX + i * barW + 1.5, midY - amp / 2, Math.max(3, barW - 3), amp, 4); ctx.fill();
+            }
+            requestAnimationFrame(animateVisualizer);
+        }
+
+        window.addEventListener('resize', resizeSheetCanvas);
+        window.onload = function () {
+            renderHomeFeed();
+            renderReels();
+            renderExploreAndLibrary();
+            resizeSheetCanvas();
+            if (window.lucide) lucide.createIcons();
+            animateVisualizer();
+            
+            // For demo purposes, reset the submit button texts if they get stuck
+            document.getElementById('create-track-form').reset();
+            document.getElementById('edit-profile-form').reset();
+        };
+    </script>
+</body>
+</html>
