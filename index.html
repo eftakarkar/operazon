@@ -149,7 +149,7 @@
                 </div>
             </div>
 
-            <!-- Right: Custom Single Music Note Icon with Red Notification Dot (Hidden until unread notification arrives) -->
+            <!-- Right: Custom Single Music Note Icon with Red Notification Dot -->
             <button onclick="openNotificationsDrawer()" class="relative p-1.5 text-white hover:opacity-80 active:scale-95 transition-transform cursor-pointer" aria-label="Music Notifications">
                 <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="9.5" cy="17.5" r="3.2" />
@@ -284,7 +284,7 @@
         </div>
 
         <!-- ================================================================= -->
-        <!-- YOUTUBE-STYLE MINI PLAYER BAR (Sits right above Bottom Tab Bar)   -->
+        <!-- YOUTUBE-STYLE MINI PLAYER BAR                                     -->
         <!-- ================================================================= -->
         <div id="mini-player-bar" onclick="openFullPlayer()" class="shrink-0 z-30 mx-2.5 mb-2 px-3 py-2 rounded-2xl bg-appElevated/95 backdrop-blur-xl border border-white/15 flex items-center justify-between gap-2.5 shadow-2xl cursor-pointer">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -305,34 +305,25 @@
         </div>
 
         <!-- ================================================================= -->
-        <!-- NATIVE BOTTOM NAVIGATION BAR (Pure Icon-Only — No Icon Labels)    -->
+        <!-- NATIVE BOTTOM NAVIGATION BAR                                      -->
         <!-- ================================================================= -->
         <nav class="shrink-0 z-30 bg-appBg/95 backdrop-blur-xl border-t border-white/10 h-15 py-2.5 px-3 flex items-center justify-around">
-            <!-- 1. Home Icon (Custom Single Eighth Note Symbol) -->
             <button data-tab="home" class="nav-tab-btn flex items-center justify-center text-white cursor-pointer w-12 h-11" aria-label="Home Feed">
                 <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="9.5" cy="17.5" r="3.5" />
                     <path d="M13 17.5V5.5l5.5 3.2" />
                 </svg>
             </button>
-
-            <!-- 2. Music Reels Icon (Clapperboard / Reels Symbol) -->
             <button data-tab="reels" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Music Reels">
                 <i data-lucide="clapperboard" class="w-6 h-6"></i>
             </button>
-
-            <!-- 3. Personal Message (DM) Option (Pink dot hidden until unread message arrives) -->
             <button onclick="openDmDrawer()" class="relative flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Personal Messages">
                 <i data-lucide="send" class="w-6 h-6"></i>
                 <span id="dm-dot" class="hidden absolute top-2 right-2.5 w-2 h-2 rounded-full bg-operaPink"></span>
             </button>
-
-            <!-- 4. Search Icon -->
             <button data-tab="explore" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Search">
                 <i data-lucide="search" class="w-6 h-6"></i>
             </button>
-
-            <!-- 5. Profile Avatar Icon -->
             <button data-tab="profile" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11" aria-label="Profile">
                 <div class="w-6 h-6 rounded-full overflow-hidden border border-white/50">
                     <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop" alt="Profile" class="w-full h-full object-cover">
@@ -341,28 +332,23 @@
         </nav>
 
         <!-- ================================================================= -->
-        <!-- FULL-SCREEN EXPANDABLE NOW PLAYING SHEET (Video | Audio | Reels)  -->
+        <!-- FULL-SCREEN EXPANDABLE NOW PLAYING SHEET                          -->
         <!-- ================================================================= -->
         <div id="full-player-sheet" class="fixed sm:absolute inset-0 z-40 bg-appBg flex flex-col justify-between p-5 transition-transform duration-300 translate-y-full">
-            <!-- Top Sheet Handle & Mode Switcher -->
             <div class="flex items-center justify-between">
                 <button onclick="closeFullPlayer()" class="p-2 rounded-full bg-white/10 text-white cursor-pointer" aria-label="Minimize">
                     <i data-lucide="chevron-down" class="w-5 h-5"></i>
                 </button>
-
-                <!-- One Song • Three Experiences Switcher -->
                 <div class="flex items-center bg-appElevated p-1 rounded-full border border-white/10 text-[11px] font-bold">
                     <button data-exp="video" class="sheet-exp-btn px-3 py-1 rounded-full bg-operaViolet text-white cursor-pointer">VIDEO</button>
                     <button data-exp="audio" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">AUDIO</button>
                     <button data-exp="reels" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">REELS</button>
                 </div>
-
                 <button onclick="openCommentsDrawer(tracks[activeTrackIndex].id)" class="p-2 rounded-full bg-white/10 text-white cursor-pointer" aria-label="Comments">
                     <i data-lucide="message-circle" class="w-5 h-5"></i>
                 </button>
             </div>
 
-            <!-- Central Stage Viewport (Visualizer / Cover / 9:16 Preview) -->
             <div class="relative w-full aspect-square max-h-[310px] mx-auto rounded-3xl overflow-hidden bg-black border border-white/15 shadow-2xl flex items-center justify-center">
                 <canvas id="sheet-visualizer-canvas" class="w-full h-full block"></canvas>
                 <div id="sheet-audio-badge" class="hidden absolute inset-0 bg-gradient-to-br from-operaPink/30 via-appBg/90 to-operaViolet/30 flex flex-col items-center justify-center p-6 text-center">
@@ -373,7 +359,6 @@
                 </div>
             </div>
 
-            <!-- Track Info & Social Action Row -->
             <div class="space-y-4">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
@@ -384,8 +369,6 @@
                         <i id="sheet-like-icon" data-lucide="heart" class="w-5 h-5"></i>
                     </button>
                 </div>
-
-                <!-- Scrubber Bar -->
                 <div class="space-y-1">
                     <div class="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
                         <div class="h-full w-2/5 bg-gradient-to-r from-operaPink to-operaCyan rounded-full"></div>
@@ -395,8 +378,6 @@
                         <span>2:48</span>
                     </div>
                 </div>
-
-                <!-- Transport Controls -->
                 <div class="flex items-center justify-between px-4">
                     <button onclick="showToast('Shuffle enabled')" class="text-zinc-400 hover:text-white cursor-pointer"><i data-lucide="shuffle" class="w-5 h-5"></i></button>
                     <button onclick="prevTrack()" class="text-white cursor-pointer"><i data-lucide="skip-back" class="w-7 h-7 fill-current"></i></button>
@@ -422,6 +403,13 @@
                 </div>
                 <form id="create-track-form" class="space-y-3">
                     <input id="drop-title" type="text" required placeholder="Track or Video Title..." class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    
+                    <!-- নতুন ফাইল আপলোড ইনপুট -->
+                    <div>
+                        <label for="drop-file" class="block text-[11px] text-zinc-400 mb-1.5 ml-1">Upload Image/Audio/Video</label>
+                        <input id="drop-file" type="file" accept="image/*,audio/*,video/*" required class="w-full px-3 py-2.5 rounded-2xl bg-appElevated border border-white/10 text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-operaPink/20 file:text-operaPink hover:file:bg-operaPink/30 transition-all">
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2.5">
                         <input id="drop-artist" type="text" required placeholder="eftakar" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
                         <select id="drop-genre" class="w-full px-3 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white">
@@ -432,7 +420,9 @@
                         </select>
                     </div>
                     <input id="drop-caption" type="text" placeholder="Reel overlay caption (e.g. Midnight studio session)" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
-                    <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-xs cursor-pointer">
+                    
+                    <!-- আপডেট করা সাবমিট বাটন -->
+                    <button type="submit" id="drop-submit-btn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                         Publish to Feed, Audio &amp; Reels
                     </button>
                 </form>
@@ -491,7 +481,7 @@
             </div>
         </div>
 
-        <!-- Universal OPERAZON Creator Profile — consistent creator layout -->
+        <!-- Universal OPERAZON Creator Profile -->
         <div id="user-profile-overlay" class="fixed sm:absolute inset-0 z-[70] hidden bg-black flex-col overflow-y-auto pb-24">
             <header class="sticky top-0 z-20 h-14 px-4 flex items-center gap-4 bg-black/95 backdrop-blur border-b border-white/10">
                 <button onclick="closeUserProfile()" class="text-white p-1" aria-label="Back"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
@@ -533,6 +523,7 @@
             </div>
             <div id="user-profile-grid" class="grid grid-cols-3 gap-1 px-4"></div>
         </div>
+
         <div id="story-viewer" class="fixed sm:absolute inset-0 z-[80] hidden bg-black items-center justify-center">
             <div class="relative w-full h-full sm:max-w-[440px] sm:max-h-[820px] bg-zinc-950 overflow-hidden">
                 <img id="story-image" class="absolute inset-0 w-full h-full object-cover" />
@@ -767,7 +758,7 @@
             if(user) syncOperazonProfile(user);
         });
 
-        // --- Core Music & Video Dataset (Usernames styled clean without @) ---
+        // --- Core Music & Video Dataset ---
         let tracks = [
             {
                 id: 1,
@@ -976,20 +967,17 @@
 
             list.innerHTML = filtered.map(t => `
                 <article class="py-3.5 space-y-2.5 bg-[#0B0E11]">
-                    <!-- IG Post Header (Matching Reference Style with Alternating Views / Time & Follow) -->
+                    <!-- IG Post Header -->
                     <div class="px-3.5 flex items-center justify-between gap-2">
                         <div class="flex items-center gap-3 min-w-0">
-                            <!-- Gradient Story Ring Avatar -->
                             <button data-story-user="${t.artist.toLowerCase()}" onclick="openUserStoryByName('${t.artist}')" class="story-ring p-[2px] rounded-full shrink-0" aria-label="View ${t.artist} story"><span class="block p-[2px] rounded-full bg-[#0B0E11]"><img src="${t.avatar}" alt="${t.artist}" class="w-9 h-9 rounded-full object-cover block"></span></button>
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1">
                                     <button onclick="openUserProfileByName('${t.artist}')" class="font-bold text-[14px] text-white tracking-tight truncate">${t.artist}</button>
-                                    <!-- Solid Blue Verified Checkmark Seal -->
                                     <svg class="w-4 h-4 text-[#0095F6] shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 2L14.8 4.2L18.4 3.8L19.6 7.2L22.6 9.2L21.6 12.7L22.6 16.2L19.6 18.2L18.4 21.6L14.8 21.2L12 23.4L9.2 21.2L5.6 21.6L4.4 18.2L1.4 16.2L2.4 12.7L1.4 9.2L4.4 7.2L5.6 3.8L9.2 4.2L12 2ZM10.4 16.2L17.1 9.5L15.7 8.1L10.4 13.4L8.1 11.1L6.7 12.5L10.4 16.2Z"/>
                                     </svg>
                                 </div>
-                                <!-- Alternating Views & Days Ago Subtitle Line (Cycles every 1 second) -->
                                 <div class="text-[12px] text-zinc-300 font-medium truncate">
                                     <span class="views-time-ticker transition-opacity duration-200" data-views="${t.views.split('•')[0].trim()}" data-time="${(t.views.split('•')[1] || 'Just now').trim().toUpperCase().replace('AGO', 'ago')}">${t.views.split('•')[0].trim()}</span>
                                 </div>
@@ -997,7 +985,6 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             ${isFollowing(t.artist.toLowerCase()) ? '' : `<button onclick="toggleFollow('${t.artist.toLowerCase()}')" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[12px] font-semibold text-white cursor-pointer transition-colors">Follow</button>`}
-                            <!-- Right-Aligned Staggered 2-Line Menu Icon -->
                             <button onclick="showToast('Options for ${t.artist}')" class="p-1.5 text-white hover:opacity-80 cursor-pointer" aria-label="Post Options">
                                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                                     <line x1="4" y1="9" x2="20" y2="9" />
@@ -1042,13 +1029,11 @@
                     <img src="${t.thumb}" alt="${t.title}" class="absolute inset-0 w-full h-full object-cover opacity-70">
                     <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
 
-                    <!-- Top Reel Tag -->
                     <div class="relative z-10 flex justify-between items-center">
                         <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">Reels &bull; ${t.genre}</span>
                         <button onclick="playAudioMode(${t.id})" class="px-3 py-1 rounded-full bg-operaPink text-white text-[11px] font-bold cursor-pointer">Play Audio</button>
                     </div>
 
-                    <!-- Bottom Overlay Info + Right Vertical Action Stack -->
                     <div class="relative z-10 flex items-end justify-between gap-3 pb-16">
                         <div class="space-y-2 max-w-[78%]">
                             <div class="flex items-center gap-2">
@@ -1063,7 +1048,6 @@
                             </div>
                         </div>
 
-                        <!-- IG Right Vertical Action Icons -->
                         <div class="flex flex-col items-center gap-4">
                             <button onclick="toggleTrackLike(${t.id})" class="flex flex-col items-center gap-1 text-white cursor-pointer">
                                 <i data-lucide="heart" class="w-6 h-6 ${t.liked ? 'text-operaPink fill-current' : ''}"></i>
@@ -1212,37 +1196,98 @@
             d.classList.add('hidden'); d.classList.remove('flex');
         }
 
-        document.getElementById('create-track-form').addEventListener('submit', (e) => {
+        // --- Supabase Storage এ ফাইল আপলোড এবং নতুন ট্র্যাক তৈরি ---
+        document.getElementById('create-track-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // ইউজার লগইন করা আছে কিনা চেক করা
+            if (!operazonCurrentUser) {
+                showToast('You must sign in to upload!');
+                openAccountAuth();
+                return;
+            }
+
+            const btn = document.getElementById('drop-submit-btn');
+            const originalBtnText = btn.textContent;
+            
             const title = document.getElementById('drop-title').value.trim();
             const artist = document.getElementById('drop-artist').value.trim() || 'eftakar';
             const genre = document.getElementById('drop-genre').value;
             const caption = document.getElementById('drop-caption').value.trim() || 'Fresh release on OPERAZON 🔥';
+            const fileInput = document.getElementById('drop-file');
+            const file = fileInput.files[0];
 
-            const newTrack = {
-                id: Date.now(),
-                title,
-                artist,
-                genre,
-                views: 'Just now',
-                likes: 1,
-                liked: true,
-                accent: '#FF2A85',
-                thumb: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop',
-                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop',
-                caption,
-                reelCaption: caption,
-                notes: ['G3', 'Bb3', 'D4', 'F4', 'G4'],
-                comments: []
-            };
-            tracks.unshift(newTrack);
-            e.target.reset();
-            closeCreateModal();
-            renderHomeFeed();
-            renderReels();
-            renderExploreAndLibrary();
-            selectTrack(newTrack.id, true, true);
-            showToast('Published to Feed, Audio & Reels!');
+            let uploadedFileUrl = '';
+            let bucketName = 'music'; // ডিফল্ট বাকেট
+
+            btn.disabled = true;
+            btn.textContent = 'Uploading... Please wait...';
+
+            try {
+                if (file) {
+                    // ফাইলের ধরন অনুযায়ী বাকেট নির্ধারণ (আপনার Supabase এ এই বাকেটগুলো তৈরি থাকতে হবে)
+                    if (file.type.startsWith('video/')) {
+                        bucketName = 'videos';
+                    } else if (file.type.startsWith('image/')) {
+                        bucketName = 'avatars'; // ছবির জন্য
+                    } else {
+                        bucketName = 'music'; // অডিওর জন্য
+                    }
+
+                    // ফাইলের নাম ইউনিক করা
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+                    // Supabase Storage-এ আপলোড
+                    const { data: uploadData, error: uploadError } = await operazonSupabase.storage
+                        .from(bucketName)
+                        .upload(fileName, file);
+
+                    if (uploadError) throw uploadError;
+
+                    // পাবলিক URL নেওয়া
+                    const { data: urlData } = operazonSupabase.storage
+                        .from(bucketName)
+                        .getPublicUrl(fileName);
+                        
+                    uploadedFileUrl = urlData.publicUrl;
+                }
+
+                // নতুন ট্র্যাক অবজেক্ট তৈরি
+                const newTrack = {
+                    id: Date.now(),
+                    title,
+                    artist,
+                    genre,
+                    views: 'Just now',
+                    likes: 1,
+                    liked: true,
+                    accent: '#FF2A85',
+                    thumb: uploadedFileUrl || 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop',
+                    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop',
+                    caption,
+                    reelCaption: caption,
+                    audioUrl: uploadedFileUrl,
+                    notes: ['G3', 'Bb3', 'D4', 'F4', 'G4'],
+                    comments: []
+                };
+
+                tracks.unshift(newTrack);
+                e.target.reset();
+                closeCreateModal();
+                renderHomeFeed();
+                renderReels();
+                renderExploreAndLibrary();
+                selectTrack(newTrack.id, true, true);
+                showToast('Successfully Published to Feed & Reels! 🎉');
+
+            } catch (error) {
+                console.error("Upload failed:", error);
+                showToast('Upload failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalBtnText;
+            }
         });
 
         function openCommentsDrawer(trackId) {
@@ -1270,8 +1315,7 @@
             renderReels();
         });
 
-        // Follow state is persisted in this browser. A production deployment should
-        // store follows against authenticated user IDs in the server database.
+        // Follow state is persisted in this browser.
         const FOLLOWING_KEY = 'operazon_following_v1';
         function getFollowing() {
             try { return JSON.parse(localStorage.getItem(FOLLOWING_KEY) || '[]'); }
@@ -1364,7 +1408,6 @@
                 const id=canonicalStoryId(el.getAttribute('data-story-user'));
                 const viewed=!!id && isStoryViewed(id);
                 el.classList.toggle('story-viewed',viewed);
-                // Some surfaces put the visible gradient ring on a child, not the data-story-user button.
                 el.querySelectorAll('.story-ring').forEach(ring=>ring.classList.toggle('story-viewed',viewed));
             });
         }
@@ -1576,7 +1619,7 @@
             if (window.lucide) lucide.createIcons();
             animateVisualizer();
 
-            // Cycle views (e.g. 1.2M views) and days ago (e.g. 2D ago) every 1 second
+            // Cycle views and days ago every 1 second
             let showTimeAgo = false;
             setInterval(() => {
                 showTimeAgo = !showTimeAgo;
