@@ -14,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -549,6 +550,17 @@
                     <button onclick="closeSettingsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
                 </div>
                 <div class="space-y-2.5 text-xs">
+                    <div class="p-3.5 rounded-2xl bg-appElevated border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-bold text-white">OPERAZON Account</div>
+                                <div id="account-session-label" class="text-[11px] text-zinc-400">Not connected</div>
+                            </div>
+                            <span id="account-status-pill" class="px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]">OFFLINE</span>
+                        </div>
+                        <button id="account-open-auth" onclick="openAccountAuth()" class="w-full p-3 rounded-xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold">Sign in / Create account</button>
+                        <button id="account-signout" onclick="operazonSignOut()" class="hidden w-full p-2.5 rounded-xl bg-white/10 text-white font-semibold">Sign out</button>
+                    </div>
                     <div class="p-3.5 rounded-2xl bg-appElevated flex items-center justify-between">
                         <div>
                             <div class="font-bold text-white">Hi-Fi Lossless Audio (24-Bit)</div>
@@ -568,6 +580,29 @@
                         <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- OPERAZON Supabase Account Dialog -->
+        <div id="account-auth-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div class="w-full max-w-sm rounded-3xl bg-appSurface border border-white/15 p-5 space-y-4 shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <div><h2 class="font-display font-extrabold text-lg text-white">OPERAZON Account</h2><p class="text-xs text-zinc-400">Sign in or create your account</p></div>
+                    <button onclick="closeAccountAuth()" class="p-2 rounded-full bg-white/10 text-zinc-300" aria-label="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="auth-mode-login" onclick="setAccountAuthMode('login')" class="rounded-xl py-2.5 text-xs font-bold bg-operaPink text-white">Sign in</button>
+                    <button id="auth-mode-signup" onclick="setAccountAuthMode('signup')" class="rounded-xl py-2.5 text-xs font-bold bg-white/10 text-zinc-300">Create account</button>
+                </div>
+                <form id="operazon-auth-form" class="space-y-3">
+                    <input id="auth-username" type="text" autocomplete="username" placeholder="Unique username (e.g. kabir_01)" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-display-name" type="text" autocomplete="name" placeholder="Full name" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-email" type="text" autocomplete="username" required placeholder="Username or Gmail address" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Password (at least 6 characters)" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <p id="auth-feedback" class="text-xs text-zinc-400" aria-live="polite"></p>
+                    <button id="auth-submit" type="submit" class="w-full rounded-xl py-3 bg-gradient-to-r from-operaPink to-operaViolet text-sm font-extrabold text-white">Sign in</button>
+                </form>
+                <p class="text-[10px] leading-4 text-zinc-500">Your account details are stored in OPERAZON's Supabase project. Never share your password.</p>
             </div>
         </div>
 
@@ -611,6 +646,127 @@
 
     <!-- Application Logic -->
     <script>
+        // --- OPERAZON Supabase Authentication & Profile Sync ---
+        const OPERAZON_SUPABASE_URL = 'https://biokgmcaipanplankmlz.supabase.co';
+        const OPERAZON_SUPABASE_ANON_KEY = 'sb_publishable_fnl6m9-0bO1Vo7e10icMtw_G2GD747C';
+        const operazonSupabase = window.supabase.createClient(OPERAZON_SUPABASE_URL, OPERAZON_SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } });
+        let operazonAuthMode = 'login';
+        let operazonCurrentUser = null;
+
+        function openAccountAuth() {
+            closeSettingsDrawer();
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            setAccountAuthMode(operazonCurrentUser ? 'login' : operazonAuthMode);
+        }
+        function closeAccountAuth() {
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+        function setAccountAuthMode(mode) {
+            operazonAuthMode=mode;
+            const signup=mode==='signup';
+            document.getElementById('auth-username').classList.toggle('hidden',!signup);
+            document.getElementById('auth-username').required=signup;
+            document.getElementById('auth-display-name').classList.toggle('hidden',!signup);
+            document.getElementById('auth-display-name').required=signup;
+            document.getElementById('auth-password').autocomplete=signup?'new-password':'current-password';
+            document.getElementById('auth-submit').textContent=signup?'Create account':'Sign in';
+            document.getElementById('auth-mode-login').className='rounded-xl py-2.5 text-xs font-bold '+(!signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-mode-signup').className='rounded-xl py-2.5 text-xs font-bold '+(signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-feedback').textContent='';
+        }
+        function updateOperazonAccountUI(user) {
+            operazonCurrentUser=user||null;
+            const label=document.getElementById('account-session-label');
+            const pill=document.getElementById('account-status-pill');
+            const open=document.getElementById('account-open-auth');
+            const signout=document.getElementById('account-signout');
+            if(user) {
+                label.textContent=user.email||'Signed in'; pill.textContent='CONNECTED';
+                pill.className='px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]';
+                open.textContent='Account connected'; open.classList.add('opacity-70');
+                signout.classList.remove('hidden');
+            } else {
+                label.textContent='Not connected'; pill.textContent='OFFLINE';
+                pill.className='px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]';
+                open.textContent='Sign in / Create account'; open.classList.remove('opacity-70');
+                signout.classList.add('hidden');
+            }
+        }
+        async function syncOperazonProfile(user, displayName='') {
+            if(!user) return;
+            const metadataName=user.user_metadata?.display_name || displayName || (user.email ? user.email.split('@')[0] : 'OPERAZON User');
+            const username=user.user_metadata?.username || ''; 
+            const {error}=await operazonSupabase.from('profiles').upsert({
+                id:user.id, display_name:metadataName, ...(username ? {username} : {}), created_at:user.created_at || new Date().toISOString()
+            },{onConflict:'id',ignoreDuplicates:true});
+            if(error) {
+                console.error('OPERAZON profile sync error:',error);
+                document.getElementById('auth-feedback').textContent='Signed in, but profile sync failed: '+error.message;
+                showToast('Account connected; profile sync needs attention');
+            }
+        }
+        document.getElementById('operazon-auth-form').addEventListener('submit',async (event)=>{
+            event.preventDefault();
+            const email=document.getElementById('auth-email').value.trim();
+            const password=document.getElementById('auth-password').value;
+            const displayName=document.getElementById('auth-display-name').value.trim();
+            const username=document.getElementById('auth-username').value.trim().toLowerCase();
+            const submit=document.getElementById('auth-submit');
+            const feedback=document.getElementById('auth-feedback');
+            submit.disabled=true; submit.textContent='Please wait...'; feedback.textContent='Connecting securely...';
+            try {
+                let result;
+                if(operazonAuthMode==='signup') {
+                    if(!/^[a-z0-9._]{3,30}$/.test(username)) throw new Error('Username must be 3–30 characters: letters, numbers, dots or underscores only.');
+                    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid Gmail or email address.');
+                    result=await operazonSupabase.auth.signUp({email,password,options:{data:{display_name:displayName,username}}});
+                    if(result.error) throw result.error;
+                    if(result.data.session) {
+                        await syncOperazonProfile(result.data.user,displayName);
+                        updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('OPERAZON account created');
+                    } else {
+                        feedback.textContent='Account created. Check your Gmail to confirm it, then sign in with your email and password.';
+                    }
+                } else {
+                    const loginId=email.trim();
+                    if(loginId.includes('@')) {
+                        result=await operazonSupabase.auth.signInWithPassword({email:loginId,password});
+                        if(result.error) throw result.error;
+                        await syncOperazonProfile(result.data.user);
+                    } else {
+                        const {data:loginData,error:loginError}=await operazonSupabase.functions.invoke('username-login',{body:{username:loginId,password}});
+                        if(loginError) throw loginError;
+                        if(!loginData?.access_token || !loginData?.refresh_token) throw new Error(loginData?.error || 'Invalid username or password.');
+                        const {data:sessionData,error:sessionError}=await operazonSupabase.auth.setSession({access_token:loginData.access_token,refresh_token:loginData.refresh_token});
+                        if(sessionError) throw sessionError;
+                        result={data:{user:sessionData.user}};
+                        await syncOperazonProfile(result.data.user);
+                    }
+                    updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('Welcome back to OPERAZON');
+                }
+            } catch(error) {
+                feedback.textContent=(error.message||'Unable to connect. Please try again.').replace('User already registered','This email is already registered. Try signing in.');
+            } finally {
+                submit.disabled=false; submit.textContent=operazonAuthMode==='signup'?'Create account':'Sign in';
+            }
+        });
+        async function operazonSignOut() {
+            const {error}=await operazonSupabase.auth.signOut();
+            if(error) { showToast(error.message); return; }
+            updateOperazonAccountUI(null); closeSettingsDrawer(); showToast('Signed out');
+        }
+        operazonSupabase.auth.onAuthStateChange((event,session)=>{
+            const user=session?.user||null; updateOperazonAccountUI(user);
+            if(user && event==='SIGNED_IN') setTimeout(()=>syncOperazonProfile(user),0);
+        });
+        operazonSupabase.auth.getSession().then(({data,error})=>{
+            if(error) console.error('Supabase session check:',error);
+            const user=data?.session?.user||null; updateOperazonAccountUI(user);
+            if(user) syncOperazonProfile(user);
+        });
+
         // --- Core Music & Video Dataset (Usernames styled clean without @) ---
         let tracks = [
             {
