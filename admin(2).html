@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08080d">
+  <title>OPERAZON — Owner Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#08080d;--panel:#12121b;--line:#292936;--muted:#a1a1aa;--green:#22c55e;--white:#f8fafc}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#17251e 0%,#08080d 52%);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--white);padding:24px}
+    .wrap{width:min(100%,1120px);margin:0 auto}.brand{text-align:center;margin:4px 0 26px}.logo{font-size:30px;font-weight:900;letter-spacing:2px}.logo span{color:#4ade80}.sub{color:var(--muted);font-size:13px;margin-top:7px}
+    .card{background:rgba(18,18,27,.94);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 20px 60px #0005}.login-wrap{width:min(100%,430px);margin:0 auto}.eyebrow{font-size:11px;letter-spacing:2px;color:#4ade80;font-weight:800}.title{font-size:24px;font-weight:800;margin:10px 0 7px}.desc{font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 20px}
+    label{display:block;font-size:12px;font-weight:700;margin:16px 0 8px;color:#e4e4e7}input{width:100%;height:46px;border:1px solid #343442;background:#090910;border-radius:11px;padding:0 14px;color:white;font-size:14px;outline:none}input:focus{border-color:#22c55e;box-shadow:0 0 0 3px #22c55e20}
+    button{border:0;border-radius:10px;background:#22c55e;color:#041108;font-weight:900;font-size:13px;padding:13px 18px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.login-button{width:100%;height:48px;margin-top:22px}.secondary{background:#242432;color:#f8fafc;border:1px solid #3a3a49}.status{display:none;margin-top:16px;padding:12px;border-radius:10px;font-size:13px;line-height:1.5}.status.show{display:block}.status.error{background:#451a1a;color:#fecaca;border:1px solid #7f1d1d}.status.ok{background:#052e16;color:#bbf7d0;border:1px solid #166534}.security{display:flex;gap:9px;align-items:center;color:#a1a1aa;font-size:11px;margin-top:18px;line-height:1.5}.dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex:none}.hidden{display:none!important}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}.welcome{font-size:22px;font-weight:850;margin:0 0 5px}.muted{color:var(--muted);font-size:13px}.topbar button{white-space:nowrap}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}.stat{background:#101019;border:1px solid var(--line);border-radius:15px;padding:18px}.stat-label{font-size:12px;color:var(--muted)}.stat-value{font-size:30px;font-weight:900;margin-top:8px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px}.section-title{font-size:18px;font-weight:800;margin:0}.search{max-width:360px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:13px 12px;border-bottom:1px solid #292936;font-size:13px;vertical-align:middle}th{color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.8px}tbody tr:hover{background:#ffffff06}.person{display:flex;align-items:center;gap:11px;min-width:180px}.avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#252536;border:1px solid #3b3b4b}.avatar-fallback{display:grid;place-items:center;font-weight:800;color:#bbf7d0}.name{font-weight:750}.bio{max-width:260px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.empty{text-align:center;color:#a1a1aa;padding:30px 12px}.foot{text-align:center;color:#71717a;font-size:11px;margin:20px 0 4px}
+    @media(max-width:700px){body{padding:14px}.card{padding:17px}.stats{grid-template-columns:1fr 1fr}.stat:last-child{grid-column:1/-1}.topbar{align-items:flex-start}.welcome{font-size:19px}.section-head{align-items:stretch;flex-direction:column}.search{max-width:none}.topbar button{padding:11px 12px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="brand"><div class="logo">OPERA<span>ZON</span></div><div class="sub">Owner Control Centre</div></header>
+    <section class="card login-wrap" id="loginCard">
+      <div class="eyebrow">RESTRICTED ACCESS</div><h1 class="title">Owner Admin Login</h1>
+      <p class="desc">Sign in with the Owner account registered in your OPERAZON Supabase project.</p>
+      <form id="loginForm">
+        <label for="email">Owner email</label><input id="email" type="email" autocomplete="username" placeholder="you@example.com" required>
+        <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+        <button class="login-button" id="loginButton" type="submit">Sign in as Owner</button>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div class="security"><span class="dot"></span><span>Owner access is verified by your authenticated Supabase session and the <b>is_admin()</b> database function.</span></div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="topbar"><div><h1 class="welcome">Owner Dashboard</h1><div class="muted" id="signedInAs"></div></div><button class="secondary" id="signOutButton" type="button">Sign out</button></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Total Profiles</div><div class="stat-value" id="totalUsers">—</div></div>
+        <div class="stat"><div class="stat-label">Accounts Loaded</div><div class="stat-value" id="loadedUsers">—</div></div>
+        <div class="stat"><div class="stat-label">Dashboard Access</div><div class="stat-value" style="font-size:20px;color:#4ade80">Verified</div></div>
+      </div>
+      <section class="card">
+        <div class="section-head"><div><h2 class="section-title">All Accounts</h2><div class="muted" style="margin-top:5px">Search by display name or account UUID</div></div><input class="search" id="userSearch" type="search" placeholder="Search users…" aria-label="Search users"></div>
+        <div id="dataStatus" class="status" role="status" aria-live="polite"></div>
+        <div class="table-wrap"><table><thead><tr><th>Account</th><th>Profile ID</th><th>Bio</th><th>Created</th></tr></thead><tbody id="usersBody"><tr><td colspan="4" class="empty">Loading accounts…</td></tr></tbody></table></div>
+      </section>
+    </section>
+    <div class="foot">OPERAZON • Secure Owner Access</div>
+  </main>
+<script>
+  // Browser-safe Supabase publishable key only. Never place a service_role/sb_secret key here.
+  const SUPABASE_URL = 'https://biokgmcaipanplankmlz.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fnl6m9-0bO1Vo7e10icMtw_G2GD747C';
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const loginCard = document.getElementById('loginCard');
+  const dashboard = document.getElementById('dashboard');
+  const statusBox = document.getElementById('status');
+  const loginButton = document.getElementById('loginButton');
+  let allProfiles = [];
+
+  function showStatus(message, type='error') { statusBox.textContent=message; statusBox.className='status show '+type; }
+  function showDataStatus(message,type='error') { const el=document.getElementById('dataStatus'); el.textContent=message; el.className='status show '+type; }
+  async function verifyAdmin(session) {
+    if (!session?.user) return false;
+    const {data,error}=await client.rpc('is_admin');
+    if(error) throw error;
+    return data===true;
+  }
+  function showOwner(user) {
+    loginCard.classList.add('hidden'); dashboard.classList.remove('hidden');
+    document.getElementById('signedInAs').textContent='Signed in as '+(user.email||'Owner account');
+    loadProfiles();
+  }
+  function escapeHTML(value) { return String(value??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function renderProfiles(list) {
+    const body=document.getElementById('usersBody');
+    document.getElementById('loadedUsers').textContent=list.length;
+    if(!list.length){body.innerHTML='<tr><td colspan="4" class="empty">No matching profiles found.</td></tr>';return;}
+    body.innerHTML=list.map(p=>{
+      const name=p.display_name||'Unnamed account';
+      const avatar=p.avatar_url?`<img class="avatar" src="${escapeHTML(p.avatar_url)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:`<div class="avatar avatar-fallback">${escapeHTML(name.trim().charAt(0).toUpperCase()||'?')}</div>`;
+      const date=p.created_at?new Date(p.created_at).toLocaleDateString():'—';
+      return `<tr><td><div class="person">${avatar}<span class="name">${escapeHTML(name)}</span></div></td><td><span title="${escapeHTML(p.id)}">${escapeHTML(p.id||'—')}</span></td><td><div class="bio" title="${escapeHTML(p.bio||'')}">${escapeHTML(p.bio||'—')}</div></td><td>${escapeHTML(date)}</td></tr>`;
+    }).join('');
+  }
+  async function loadProfiles() {
+    const body=document.getElementById('usersBody');
+    body.innerHTML='<tr><td colspan="4" class="empty">Loading accounts…</td></tr>';
+    document.getElementById('dataStatus').className='status';
+    // This RPC must enforce the owner role inside the database before returning profile data.
+    const {data,error}=await client.rpc('admin_list_profiles');
+    if(error){allProfiles=[];document.getElementById('totalUsers').textContent='—';document.getElementById('loadedUsers').textContent='—';body.innerHTML='<tr><td colspan="4" class="empty">Profile list is not connected yet.</td></tr>';showDataStatus('Could not load accounts: '+error.message+' — The secure admin_list_profiles database function needs to be created.');return;}
+    allProfiles=Array.isArray(data)?data:[];
+    document.getElementById('totalUsers').textContent=allProfiles.length;
+    renderProfiles(allProfiles);
+  }
+  document.getElementById('userSearch').addEventListener('input',e=>{
+    const q=e.target.value.trim().toLowerCase();
+    renderProfiles(allProfiles.filter(p=>(p.display_name||'').toLowerCase().includes(q)||(p.id||'').toLowerCase().includes(q)));
+  });
+  document.getElementById('loginForm').addEventListener('submit',async event=>{
+    event.preventDefault();loginButton.disabled=true;loginButton.textContent='Checking account…';statusBox.className='status';
+    try{
+      const email=document.getElementById('email').value.trim();const password=document.getElementById('password').value;
+      const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw error;
+      const allowed=await verifyAdmin(data.session);
+      if(!allowed){await client.auth.signOut();throw new Error('This account can sign in, but it is not authorized as an OPERAZON Owner.');}
+      showOwner(data.user);
+    }catch(error){showStatus(error.message||'Login failed. Please try again.');}
+    finally{loginButton.disabled=false;loginButton.textContent='Sign in as Owner';}
+  });
+  document.getElementById('signOutButton').addEventListener('click',async()=>{
+    await client.auth.signOut();allProfiles=[];dashboard.classList.add('hidden');loginCard.classList.remove('hidden');document.getElementById('password').value='';document.getElementById('userSearch').value='';showStatus('You have signed out.','ok');
+  });
+  // Re-check every stored session before showing the dashboard.
+  client.auth.getSession().then(async({data,error})=>{
+    if(error||!data.session)return;
+    try{const allowed=await verifyAdmin(data.session);if(allowed)showOwner(data.session.user);else await client.auth.signOut();}
+    catch(_){await client.auth.signOut();}
+  });
+</script>
+</body>
+</html>
