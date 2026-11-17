@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OPERAZON App — Music Video & Reels</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Syne', 'sans-serif'],
+                        insta: ['"Grand Hotel"', 'cursive'],
+                    },
+                    colors: {
+                        appBg: '#050508',
+                        appSurface: '#101016',
+                        appElevated: '#181822',
+                        operaPink: '#FF2A85',
+                        operaViolet: '#8B5CF6',
+                        operaCyan: '#06B6D4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .story-ring { background: linear-gradient(135deg,#16a34a,#4ade80,#15803d); }
+        .story-ring.story-viewed, .story-viewed .story-ring { background: #52525b !important; }
+
+        @media (min-width: 768px) {
+            html, body { height: 100%; min-height: 100%; overflow: hidden; }
+            body { display: flex; align-items: stretch; justify-content: stretch; }
+            #app-shell { width: 100%; max-width: none; height: 100dvh; min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+            #app-header { height: 64px; padding-left: max(28px, calc((100vw - 1180px) / 2)); padding-right: max(28px, calc((100vw - 1180px) / 2)); }
+            #app-viewport { width: 100%; }
+            #tab-home { width: 100%; max-width: 680px; margin: 0 auto; padding-bottom: 110px; }
+            #home-feed-list { width: 100%; }
+            #home-feed-list article { margin: 16px 0; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; overflow: hidden; }
+            #app-viewport > #tab-explore, #app-viewport > #tab-library { max-width: 1100px; margin-left: auto; margin-right: auto; }
+            #app-viewport > #tab-profile { max-width: 1000px; margin-left: auto; margin-right: auto; }
+            #app-shell > nav { justify-content: center; gap: clamp(32px, 7vw, 100px); height: 68px; }
+            #app-shell > nav .nav-tab-btn, #app-shell > nav > button { width: 52px; }
+            #user-profile-overlay { max-width: 1100px; left: 50%; right: auto; width: min(100%, 1100px); transform: translateX(-50%); }
+        }
+        @media (min-width: 1200px) { #tab-home { max-width: 700px; } }
+        
+        html, body { height: 100dvh; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .reels-snap-container { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+        .reel-snap-item { scroll-snap-align: start; scroll-snap-stop: always; }
+
+        @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spinSlow 8s linear infinite; }
+        .paused-spin { animation-play-state: paused; }
+
+        @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ptr-spinning { animation: spinFast 0.8s linear infinite; }
+    </style>
+</head>
+<body class="bg-black text-zinc-100 font-sans antialiased flex items-center justify-center">
+
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xs px-4"></div>
+
+    <div id="app-shell" class="relative w-full h-[100dvh] sm:h-[94dvh] sm:max-w-[440px] bg-appBg sm:rounded-[38px] sm:border sm:border-white/15 sm:shadow-[0_0_80px_rgba(139,92,246,0.2)] flex flex-col overflow-hidden">
+
+        <header id="app-header" class="relative shrink-0 z-30 bg-[#0B0E11]/95 backdrop-blur-xl px-4 h-14 flex items-center justify-between">
+            <button onclick="openSettingsDrawer()" class="p-1.5 text-white hover:opacity-80 active:scale-95 transition-transform cursor-pointer">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9" /><line x1="4" y1="15" x2="13" y2="15" /></svg>
+            </button>
+
+            <div class="relative">
+                <button onclick="toggleHeaderMenu()" class="flex items-center text-white cursor-pointer active:opacity-80">
+                    <span id="header-brand-label" class="font-insta text-[29px] tracking-[0.03em] text-white leading-none pt-1">Operazon</span>
+                </button>
+                <div id="header-dropdown-menu" class="hidden absolute left-1/2 -translate-x-1/2 mt-2.5 w-40 rounded-2xl bg-appElevated border border-white/15 shadow-2xl py-1.5 z-50 text-xs font-semibold">
+                    <button onclick="selectHeaderFeed('home', 'Operazon')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer"><span>For You</span><i data-lucide="sparkles" class="w-3.5 h-3.5 text-operaPink"></i></button>
+                    <button onclick="selectHeaderFeed('reels', 'Reels')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer"><span>Music Reels</span><i data-lucide="clapperboard" class="w-3.5 h-3.5 text-operaCyan"></i></button>
+                    <button onclick="selectHeaderFeed('explore', 'Explore')" class="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 flex items-center justify-between cursor-pointer"><span>Explore</span><i data-lucide="compass" class="w-3.5 h-3.5 text-operaViolet"></i></button>
+                </div>
+            </div>
+
+            <button onclick="openNotificationsDrawer()" class="relative p-1.5 text-white hover:opacity-80 active:scale-95 transition-transform cursor-pointer">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="17.5" r="3.2" /><path d="M12.7 17.5V5.5l5.8 3" /></svg>
+                <span id="notif-dot" class="hidden absolute top-1.5 right-1 w-2.5 h-2.5 rounded-full bg-[#FF3040] ring-2 ring-[#0B0E11]"></span>
+            </button>
+        </header>
+
+        <div id="app-viewport" class="relative flex-1 overflow-y-auto no-scrollbar bg-appBg">
+            <section id="tab-home" class="app-tab-view pb-36 relative">
+                <div id="ptr-indicator" class="absolute left-1/2 -translate-x-1/2 -top-12 z-20 flex items-center justify-center w-8 h-8 rounded-full bg-appElevated border border-white/20 shadow-xl transition-all duration-200">
+                    <svg id="ptr-spinner" class="w-4 h-4 text-operaPink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </div>
+                <div id="home-feed-list" class="divide-y divide-white/10"></div>
+            </section>
+
+            <section id="tab-reels" class="app-tab-view hidden h-full w-full overflow-y-auto reels-snap-container no-scrollbar bg-black"></section>
+
+            <section id="tab-explore" class="app-tab-view hidden p-4 pb-36 space-y-5">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input id="app-search-input" type="search" autocomplete="off" placeholder="Search users, artists, songs..." class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-appElevated border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-operaPink">
+                </div>
+                <div id="universal-search-results" class="hidden space-y-4"></div>
+                <div id="explore-discovery-content">
+                    <div>
+                        <h3 class="font-display font-bold text-sm text-white mb-2.5">Trending Playlists &amp; Mixes</h3>
+                        <div id="explore-playlists" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                    <div class="mt-5">
+                        <h3 class="font-display font-bold text-sm text-white mb-2.5">Discover Visuals</h3>
+                        <div id="explore-grid" class="grid grid-cols-3 gap-1.5 rounded-2xl overflow-hidden"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-library" class="app-tab-view hidden p-4 pb-36 space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display font-extrabold text-lg text-white">Library &amp; Studio</h2>
+                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">$4,820.50 Earned</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2.5">
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10"><span class="text-[10px] text-zinc-400 block">Video Views</span><span class="font-display font-extrabold text-base text-white">418K</span></div>
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10"><span class="text-[10px] text-zinc-400 block">Audio Plays</span><span class="font-display font-extrabold text-base text-operaCyan">1.24M</span></div>
+                    <div class="p-3 rounded-2xl bg-appSurface border border-white/10"><span class="text-[10px] text-zinc-400 block">Reels Loops</span><span class="font-display font-extrabold text-base text-operaPink">892K</span></div>
+                </div>
+                <div class="space-y-2.5">
+                    <div class="flex items-center justify-between"><h3 class="font-bold text-xs uppercase tracking-wider text-zinc-400">Your Playlists</h3><button onclick="createNewPlaylist()" class="text-xs font-semibold text-operaCyan cursor-pointer">+ New</button></div>
+                    <div id="library-playlists-list" class="space-y-2.5"></div>
+                </div>
+                <div class="p-4 rounded-2xl bg-gradient-to-r from-operaViolet/20 to-operaPink/20 border border-white/10 flex items-center justify-between">
+                    <div><div class="text-xs font-bold text-white">Creator Royalties Ready</div><div class="text-[11px] text-zinc-300">Video, Audio &amp; Reel Audio Reuse</div></div>
+                    <button onclick="showToast('Instant payout of $4,820.50 initiated!')" class="px-3.5 py-2 rounded-xl bg-emerald-400 text-appBg font-bold text-xs cursor-pointer">Cash Out</button>
+                </div>
+            </section>
+
+            <section id="tab-profile" class="app-tab-view hidden pb-36">
+                <div class="h-24 bg-gradient-to-r from-operaPink via-operaViolet to-operaCyan"></div>
+                <div class="px-4 pb-4 -mt-9">
+                    <div class="flex items-end justify-between">
+                        <div class="w-20 h-20 rounded-full border-4 border-appBg overflow-hidden bg-zinc-900 shadow-xl">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openCreateModal()" class="px-3.5 py-1.5 rounded-xl bg-appElevated border border-white/10 text-xs font-semibold text-white cursor-pointer">+ Drop Track</button>
+                            <button onclick="showToast('Channel link copied!')" class="p-2 rounded-xl bg-appElevated border border-white/10 text-zinc-300 cursor-pointer"><i data-lucide="share-2" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <div class="mt-2.5">
+                        <h2 class="font-display font-extrabold text-base text-white flex items-center gap-1">eftakar <i data-lucide="badge-check" class="w-4 h-4 text-operaCyan fill-current"></i></h2>
+                        <p class="text-xs text-zinc-400 mt-0.5">Producer &bull; Visual Director &bull; Official OPERAZON Creator</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 my-4 py-2.5 rounded-2xl bg-appSurface border border-white/10 text-center">
+                        <div><span class="font-bold text-sm text-white block">24.8K</span><span class="text-[10px] text-zinc-400">Followers</span></div>
+                        <div><span class="font-bold text-sm text-white block">312</span><span class="text-[10px] text-zinc-400">Following</span></div>
+                        <div><span class="font-bold text-sm text-white block">1.9M</span><span class="text-[10px] text-zinc-400">Total Plays</span></div>
+                    </div>
+                    <div id="profile-media-grid" class="grid grid-cols-3 gap-1 rounded-xl overflow-hidden"></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="mini-player-bar" onclick="openFullPlayer()" class="shrink-0 z-30 mx-2.5 mb-2 px-3 py-2 rounded-2xl bg-appElevated/95 backdrop-blur-xl border border-white/15 flex items-center justify-between gap-2.5 shadow-2xl cursor-pointer">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <img id="mini-thumb" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=200&auto=format&fit=crop" class="w-10 h-10 rounded-xl object-cover shrink-0">
+                <div class="min-w-0">
+                    <div id="mini-title" class="font-bold text-xs text-white truncate">Neon Pulse Overdrive</div>
+                    <div id="mini-artist" class="text-[11px] text-operaCyan truncate">kairo &bull; Tap to expand</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+                <button onclick="togglePlayback()" class="w-9 h-9 rounded-full bg-white text-appBg flex items-center justify-center cursor-pointer"><i id="mini-play-icon" data-lucide="play" class="w-4 h-4 fill-current ml-0.5"></i></button>
+                <button onclick="nextTrack()" class="p-2 text-zinc-300 hover:text-white cursor-pointer"><i data-lucide="skip-forward" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+
+        <nav class="shrink-0 z-30 bg-appBg/95 backdrop-blur-xl border-t border-white/10 h-15 py-2.5 px-3 flex items-center justify-around">
+            <button data-tab="home" class="nav-tab-btn flex items-center justify-center text-white cursor-pointer w-12 h-11"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="17.5" r="3.5" /><path d="M13 17.5V5.5l5.5 3.2" /></svg></button>
+            <button data-tab="reels" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11"><i data-lucide="clapperboard" class="w-6 h-6"></i></button>
+            <button onclick="openDmDrawer()" class="relative flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11"><i data-lucide="send" class="w-6 h-6"></i><span id="dm-dot" class="hidden absolute top-2 right-2.5 w-2 h-2 rounded-full bg-operaPink"></span></button>
+            <button data-tab="explore" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11"><i data-lucide="search" class="w-6 h-6"></i></button>
+            <button data-tab="profile" class="nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11"><div class="w-6 h-6 rounded-full overflow-hidden border border-white/50"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop" class="w-full h-full object-cover"></div></button>
+        </nav>
+
+        <!-- FULL PLAYER SHEET -->
+        <div id="full-player-sheet" class="fixed sm:absolute inset-0 z-40 bg-appBg flex flex-col justify-between p-5 transition-transform duration-300 translate-y-full">
+            <div class="flex items-center justify-between">
+                <button onclick="closeFullPlayer()" class="p-2 rounded-full bg-white/10 text-white cursor-pointer"><i data-lucide="chevron-down" class="w-5 h-5"></i></button>
+                <div class="flex items-center bg-appElevated p-1 rounded-full border border-white/10 text-[11px] font-bold">
+                    <button data-exp="video" class="sheet-exp-btn px-3 py-1 rounded-full bg-operaViolet text-white cursor-pointer">VIDEO</button>
+                    <button data-exp="audio" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">AUDIO</button>
+                    <button data-exp="reels" class="sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer">REELS</button>
+                </div>
+                <button onclick="openCommentsDrawer(tracks[activeTrackIndex].id)" class="p-2 rounded-full bg-white/10 text-white cursor-pointer"><i data-lucide="message-circle" class="w-5 h-5"></i></button>
+            </div>
+            <div class="relative w-full aspect-square max-h-[310px] mx-auto rounded-3xl overflow-hidden bg-black border border-white/15 shadow-2xl flex items-center justify-center">
+                <canvas id="sheet-visualizer-canvas" class="w-full h-full block"></canvas>
+                <div id="sheet-audio-badge" class="hidden absolute inset-0 bg-gradient-to-br from-operaPink/30 via-appBg/90 to-operaViolet/30 flex flex-col items-center justify-center p-6 text-center">
+                    <div id="vinyl-disc" class="w-28 h-28 rounded-full border-4 border-operaCyan/50 overflow-hidden shadow-2xl animate-spin-slow paused-spin mb-3"><img id="sheet-cover-img" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=400&auto=format&fit=crop" class="w-full h-full object-cover"></div>
+                    <span class="px-2.5 py-0.5 rounded-full bg-operaCyan/20 text-operaCyan text-[10px] font-bold uppercase">24-Bit Lossless Audio</span>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0"><h2 id="sheet-title" class="font-display font-extrabold text-xl text-white truncate">Neon Pulse Overdrive</h2><p id="sheet-artist" class="text-xs text-zinc-400">kairo &bull; Electronic</p></div>
+                    <button onclick="toggleActiveLike()" class="p-2.5 rounded-full bg-white/5 text-operaPink cursor-pointer"><i id="sheet-like-icon" data-lucide="heart" class="w-5 h-5"></i></button>
+                </div>
+                <div class="space-y-1">
+                    <div class="h-1.5 w-full rounded-full bg-white/15 overflow-hidden"><div class="h-full w-2/5 bg-gradient-to-r from-operaPink to-operaCyan rounded-full"></div></div>
+                    <div class="flex justify-between text-[10px] font-mono text-zinc-400"><span>1:08</span><span>2:48</span></div>
+                </div>
+                <div class="flex items-center justify-between px-4">
+                    <button onclick="showToast('Shuffle enabled')" class="text-zinc-400 hover:text-white cursor-pointer"><i data-lucide="shuffle" class="w-5 h-5"></i></button>
+                    <button onclick="prevTrack()" class="text-white cursor-pointer"><i data-lucide="skip-back" class="w-7 h-7 fill-current"></i></button>
+                    <button onclick="togglePlayback()" class="w-16 h-16 rounded-full bg-gradient-to-tr from-operaPink to-operaViolet text-white flex items-center justify-center shadow-xl shadow-operaPink/30 cursor-pointer"><i id="sheet-play-icon" data-lucide="play" class="w-7 h-7 fill-current ml-0.5"></i></button>
+                    <button onclick="nextTrack()" class="text-white cursor-pointer"><i data-lucide="skip-forward" class="w-7 h-7 fill-current"></i></button>
+                    <button onclick="showToast('Sent $5 Super-Tip to artist!')" class="px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer">Tip $5</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CREATE / UPLOAD SHEET -->
+        <div id="create-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-4">
+                <div class="flex items-center justify-between"><h3 class="font-display font-bold text-base text-white">Create &amp; Drop</h3><button onclick="closeCreateModal()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+                <form id="create-track-form" class="space-y-3">
+                    <input id="drop-title" type="text" required placeholder="Track or Video Title..." class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <div>
+                        <label for="drop-file" class="block text-[11px] text-zinc-400 mb-1.5 ml-1">Upload Image/Audio/Video</label>
+                        <input id="drop-file" type="file" accept="image/*,audio/*,video/*" required class="w-full px-3 py-2.5 rounded-2xl bg-appElevated border border-white/10 text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-operaPink/20 file:text-operaPink hover:file:bg-operaPink/30 transition-all">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <input id="drop-artist" type="text" required placeholder="eftakar" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                        <select id="drop-genre" class="w-full px-3 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white">
+                            <option value="Electronic">Electronic</option>
+                            <option value="Hip-Hop">Hip-Hop</option>
+                            <option value="Indie">Indie</option>
+                            <option value="Afrobeats">Afrobeats</option>
+                        </select>
+                    </div>
+                    <input id="drop-caption" type="text" placeholder="Reel overlay caption" class="w-full px-4 py-3 rounded-2xl bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <button type="submit" id="drop-submit-btn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Publish to Feed, Audio &amp; Reels</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- COMMENTS DRAWER -->
+        <div id="comments-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-3 max-h-[75%] flex flex-col">
+                <div class="flex items-center justify-between border-b border-white/10 pb-2.5"><span class="font-display font-bold text-sm text-white">Comments</span><button onclick="closeCommentsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+                <div id="drawer-comments-list" class="flex-1 overflow-y-auto space-y-2.5 py-1"></div>
+                <form id="drawer-comment-form" class="flex gap-2 pt-1">
+                    <input id="drawer-comment-input" type="text" required placeholder="Add a comment..." class="flex-1 px-4 py-2.5 rounded-full bg-appElevated border border-white/10 text-xs text-white focus:outline-none focus:border-operaPink">
+                    <button type="submit" class="px-4 py-2.5 rounded-full bg-operaPink text-white font-bold text-xs cursor-pointer">Post</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- FULL-SCREEN DIRECT MESSAGES -->
+        <div id="dm-drawer" class="fixed inset-0 z-50 hidden bg-black">
+            <div class="w-full h-full bg-appSurface flex flex-col overflow-hidden">
+                <section id="dm-inbox-view" class="flex flex-col h-full min-h-0">
+                    <header class="px-4 pt-4 pb-3 border-b border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2"><h3 class="font-display font-extrabold text-xl text-white">Messages</h3><i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400"></i></div>
+                            <div class="flex items-center gap-2">
+                                <button id="dm-account-btn" class="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-white/10 text-zinc-200">Sign in</button>
+                                <button aria-label="New message" onclick="startNewDm()" class="text-white p-1"><i data-lucide="square-pen" class="w-5 h-5"></i></button>
+                                <button onclick="closeDmDrawer()" aria-label="Close messages" class="text-zinc-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-appElevated text-zinc-400"><i data-lucide="search" class="w-4 h-4"></i><input id="dm-search" oninput="renderDmInbox()" placeholder="Search people" class="w-full bg-transparent outline-none text-sm text-white" /></label>
+                    </header>
+                    <div class="px-4 pt-4 pb-2">
+                        <div class="flex gap-4 overflow-x-auto" id="dm-notes-row">
+                            <div class="shrink-0 w-14 text-center"><div class="w-14 h-14 rounded-full border border-white/20 p-0.5"><div class="w-full h-full rounded-full bg-gradient-to-br from-operaPink to-operaViolet flex items-center justify-center text-white text-xl">＋</div></div><p class="text-[10px] text-zinc-400 mt-1 truncate">Your note</p></div>
+                            <div id="dm-story-strip" class="flex gap-4"></div>
+                        </div>
+                    </div>
+                    <div class="px-4 pt-3 pb-2 flex items-center justify-between"><span class="font-bold text-sm text-white">Messages</span><button class="text-xs text-operaCyan">Requests</button></div>
+                    <div id="dm-conversation-list" class="flex-1 overflow-y-auto"></div>
+                </section>
+                <section id="dm-chat-view" class="hidden flex-col h-full min-h-0">
+                    <header class="px-3 py-3 flex items-center gap-3 border-b border-white/10">
+                        <button onclick="backToDmInbox()" aria-label="Back to inbox" class="text-white p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <button id="dm-chat-story-trigger" class="story-ring p-[2px] rounded-full" onclick="openUserStory(activeChatPeerId)"><img id="dm-chat-avatar" class="w-9 h-9 rounded-full object-cover border-2 border-appSurface" src="" /></button>
+                        <div class="min-w-0 flex-1">
+                            <button id="dm-chat-name" onclick="openUserProfile(activeChatPeerId)" class="font-bold text-sm text-white text-left"></button>
+                            <p id="dm-chat-status" class="text-[10px] text-zinc-400">Active now</p>
+                        </div>
+                        <button class="text-white p-2"><i data-lucide="phone" class="w-5 h-5"></i></button>
+                        <button class="text-white p-2"><i data-lucide="video" class="w-5 h-5"></i></button>
+                        <button class="text-white p-2"><i data-lucide="info" class="w-5 h-5"></i></button>
+                    </header>
+                    <div id="drawer-dm-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 text-sm"></div>
+                    <form id="drawer-dm-form" class="p-3 border-t border-white/10 flex items-center gap-2">
+                        <button type="button" class="text-operaPink p-2"><i data-lucide="camera" class="w-5 h-5"></i></button>
+                        <input id="drawer-dm-input" type="text" required placeholder="Message..." maxlength="4000" class="flex-1 px-4 py-3 rounded-full bg-appElevated border border-white/10 text-sm text-white focus:outline-none focus:border-operaPink" />
+                        <button type="submit" class="text-operaCyan font-bold text-sm px-2">Send</button>
+                    </form>
+                </section>
+            </div>
+        </div>
+
+        <!-- UNIVERSAL PROFILE OVERLAY -->
+        <div id="user-profile-overlay" class="fixed sm:absolute inset-0 z-[70] hidden bg-black flex-col overflow-y-auto pb-24">
+            <header class="sticky top-0 z-20 h-14 px-4 flex items-center gap-4 bg-black/95 backdrop-blur border-b border-white/10">
+                <button onclick="closeUserProfile()" class="text-white p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <span id="user-profile-header" class="font-bold text-white text-sm">Profile</span>
+                <button class="ml-auto text-white p-2" onclick="showToast('More profile options')"><i data-lucide="ellipsis" class="w-5 h-5"></i></button>
+            </header>
+            <div class="relative h-44 shrink-0 bg-gradient-to-r from-[#FF2A85] via-[#8B5CF6] to-[#06B6D4]"></div>
+            <section class="px-4 relative">
+                <div class="flex items-end justify-between -mt-[42px] gap-3">
+                    <button id="user-profile-story-button" data-story-user="" onclick="openUserStory(activeProfileId)" class="story-ring shrink-0 w-[140px] h-[140px] rounded-full p-[4px] bg-black shadow-xl"><img id="user-profile-avatar" class="w-full h-full rounded-full object-cover border-[5px] border-black" /></button>
+                    <div class="flex items-center gap-2 pb-1">
+                        <button onclick="profileDropTrack()" class="rounded-2xl bg-[#17171f] border border-white/10 text-white font-bold text-sm px-4 py-3">＋ Drop Track</button>
+                        <button onclick="showToast('Profile link copied')" class="rounded-2xl bg-[#17171f] border border-white/10 text-white p-3"><i data-lucide="share-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <h2 class="flex items-center gap-2 text-white font-extrabold text-2xl"><span id="user-profile-name"></span><i id="user-profile-verified" data-lucide="badge-check" class="hidden w-6 h-6 text-cyan-400 fill-cyan-400"></i></h2>
+                    <p id="user-profile-bio" class="text-zinc-400 text-sm mt-2 leading-6">Artist • Music creator • Official OPERAZON Creator</p>
+                    <div class="flex gap-2 mt-4">
+                        <button id="user-profile-follow" onclick="toggleProfileFollow()" class="flex-1 rounded-xl bg-emerald-500 text-black font-bold text-sm py-2.5">Follow</button>
+                        <button onclick="profileMessage()" class="flex-1 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm py-2.5">Message</button>
+                    </div>
+                </div>
+                <div class="mt-7 rounded-[26px] border border-white/10 bg-[#111116] px-3 py-5 grid grid-cols-3 text-center">
+                    <div><b id="user-profile-followers" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Followers</span></div>
+                    <div><b id="user-profile-following" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Following</span></div>
+                    <div><b id="user-profile-plays" class="block text-white text-2xl font-extrabold">0</b><span class="text-zinc-400 text-xs">Total Plays</span></div>
+                </div>
+            </section>
+            <div class="mt-6 border-y border-white/10 grid grid-cols-3 text-center py-3 text-zinc-400"><i data-lucide="grid-3x3" class="w-5 h-5 mx-auto text-white"></i><i data-lucide="clapperboard" class="w-5 h-5 mx-auto"></i><i data-lucide="music-2" class="w-5 h-5 mx-auto"></i></div>
+            <div id="user-profile-grid" class="grid grid-cols-3 gap-1 px-4"></div>
+        </div>
+
+        <!-- STORY VIEWER -->
+        <div id="story-viewer" class="fixed sm:absolute inset-0 z-[80] hidden bg-black items-center justify-center">
+            <div class="relative w-full h-full sm:max-w-[440px] sm:max-h-[820px] bg-zinc-950 overflow-hidden">
+                <img id="story-image" class="absolute inset-0 w-full h-full object-cover" />
+                <div class="absolute inset-x-3 top-3 z-10"><div class="h-1 rounded-full bg-white/30 overflow-hidden"><div class="h-full w-full bg-emerald-400"></div></div><div class="flex items-center gap-2 mt-3"><img id="story-avatar" class="w-9 h-9 rounded-full border-2 border-emerald-400 object-cover"/><span id="story-name" class="text-white text-sm font-bold"></span><span class="text-white/70 text-xs">• 2h</span><button onclick="closeUserStory()" class="ml-auto text-white p-2"><i data-lucide="x" class="w-6 h-6"></i></button></div></div>
+                <button onclick="closeUserStory()" class="absolute inset-0"></button>
+                <div class="absolute bottom-5 inset-x-4 z-10 flex gap-2"><input placeholder="Reply to story..." class="flex-1 rounded-full border border-white/60 bg-black/30 px-4 py-3 text-sm text-white outline-none"/><button onclick="showToast('Story reaction sent')" class="text-emerald-400"><i data-lucide="heart" class="w-6 h-6"></i></button></div>
+            </div>
+        </div>
+
+        <!-- SETTINGS DRAWER -->
+        <div id="settings-drawer" class="fixed sm:absolute inset-0 z-50 hidden items-end bg-black/75 backdrop-blur-sm">
+            <div class="w-full rounded-t-3xl bg-appSurface border-t border-white/15 p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3"><span class="font-display font-bold text-sm text-white">App Settings</span><button onclick="closeSettingsDrawer()" class="p-1.5 rounded-full bg-white/10 text-zinc-400 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+                <div class="space-y-2.5 text-xs">
+                    <div class="p-3.5 rounded-2xl bg-appElevated border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0"><div class="font-bold text-white">OPERAZON Account</div><div id="account-session-label" class="text-[11px] text-zinc-400">Not connected</div></div>
+                            <span id="account-status-pill" class="px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]">OFFLINE</span>
+                        </div>
+                        <button id="account-open-auth" onclick="openAccountAuth()" class="w-full p-3 rounded-xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold">Sign in / Create account</button>
+                        <button id="account-signout" onclick="operazonSignOut()" class="hidden w-full p-2.5 rounded-xl bg-white/10 text-white font-semibold">Sign out</button>
+                    </div>
+                    <button onclick="closeSettingsDrawer(); openDmDrawer();" class="w-full p-3.5 rounded-2xl bg-appElevated hover:bg-white/10 flex items-center justify-between text-left cursor-pointer"><span class="font-bold text-white">Direct Messages &amp; Stem Inbox</span><i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTH MODAL -->
+        <div id="account-auth-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div class="w-full max-w-sm rounded-3xl bg-appSurface border border-white/15 p-5 space-y-4 shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <div><h2 class="font-display font-extrabold text-lg text-white">OPERAZON Account</h2><p class="text-xs text-zinc-400">Sign in or create your account</p></div>
+                    <button onclick="closeAccountAuth()" class="p-2 rounded-full bg-white/10 text-zinc-300"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="auth-mode-login" onclick="setAccountAuthMode('login')" class="rounded-xl py-2.5 text-xs font-bold bg-operaPink text-white">Sign in</button>
+                    <button id="auth-mode-signup" onclick="setAccountAuthMode('signup')" class="rounded-xl py-2.5 text-xs font-bold bg-white/10 text-zinc-300">Create account</button>
+                </div>
+                <form id="operazon-auth-form" class="space-y-3">
+                    <input id="auth-username" type="text" placeholder="Unique username (e.g. kabir_01)" minlength="3" maxlength="24" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-display-name" type="text" placeholder="Full name" class="hidden w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-email" type="text" required placeholder="Username or Gmail address" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <input id="auth-password" type="password" required minlength="6" placeholder="Password (at least 6 characters)" class="w-full rounded-xl bg-appElevated border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-operaPink">
+                    <p id="auth-feedback" class="text-xs text-zinc-400" aria-live="polite"></p>
+                    <button id="auth-submit" type="submit" class="w-full rounded-xl py-3 bg-gradient-to-r from-operaPink to-operaViolet text-sm font-extrabold text-white">Sign in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- ALL JAVASCRIPT LOGIC INTEGRATED HERE                              -->
+    <!-- ================================================================= -->
+    <script>
+        // --- 1. SUPABASE AUTH & PROFILE SYNC ---
+        const OPERAZON_SUPABASE_URL = 'https://biokgmcaipanplankmlz.supabase.co';
+        const OPERAZON_SUPABASE_ANON_KEY = 'sb_publishable_fnl6m9-0bO1Vo7e10icMtw_G2GD747C';
+        const operazonSupabase = window.supabase.createClient(OPERAZON_SUPABASE_URL, OPERAZON_SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } });
+        
+        let operazonAuthMode = 'login';
+        let operazonCurrentUser = null;
+
+        function openAccountAuth() {
+            closeSettingsDrawer();
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            setAccountAuthMode(operazonCurrentUser ? 'login' : operazonAuthMode);
+        }
+        function closeAccountAuth() {
+            const modal=document.getElementById('account-auth-modal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+        function setAccountAuthMode(mode) {
+            operazonAuthMode=mode;
+            const signup=mode==='signup';
+            document.getElementById('auth-username').classList.toggle('hidden',!signup);
+            document.getElementById('auth-username').required=signup;
+            document.getElementById('auth-display-name').classList.toggle('hidden',!signup);
+            document.getElementById('auth-display-name').required=signup;
+            document.getElementById('auth-submit').textContent=signup?'Create account':'Sign in';
+            document.getElementById('auth-mode-login').className='rounded-xl py-2.5 text-xs font-bold '+(!signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-mode-signup').className='rounded-xl py-2.5 text-xs font-bold '+(signup?'bg-operaPink text-white':'bg-white/10 text-zinc-300');
+            document.getElementById('auth-feedback').textContent='';
+        }
+        
+        function updateOperazonAccountUI(user) {
+            operazonCurrentUser=user||null;
+            const label=document.getElementById('account-session-label');
+            const pill=document.getElementById('account-status-pill');
+            const open=document.getElementById('account-open-auth');
+            const signout=document.getElementById('account-signout');
+            if(user) {
+                label.textContent=user.email||'Signed in'; pill.textContent='CONNECTED';
+                pill.className='px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]';
+                open.textContent='Account connected'; open.classList.add('opacity-70');
+                signout.classList.remove('hidden');
+            } else {
+                label.textContent='Not connected'; pill.textContent='OFFLINE';
+                pill.className='px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-300 font-bold text-[10px]';
+                open.textContent='Sign in / Create account'; open.classList.remove('opacity-70');
+                signout.classList.add('hidden');
+            }
+            setupRealtimeSubscription();
+            if (operazonCurrentUser) fetchDmProfiles();
+            if (typeof updateDmAccountButton === 'function') updateDmAccountButton();
+        }
+
+        async function syncOperazonProfile(user, displayName='') {
+            if(!user) return;
+            const metadataName=user.user_metadata?.display_name || displayName || (user.email ? user.email.split('@')[0] : 'OPERAZON User');
+            const username=user.user_metadata?.username || ''; 
+            const defaultAvatar = `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(user.id)}`;
+            
+            const {error}=await operazonSupabase.from('profiles').upsert({
+                id:user.id, 
+                display_name:metadataName, 
+                avatar_url: user.user_metadata?.avatar_url || defaultAvatar,
+                ...(username ? {username} : {}), 
+                created_at:user.created_at || new Date().toISOString()
+            },{onConflict:'id',ignoreDuplicates:true});
+            
+            if(error) {
+                console.error('Profile sync error:',error);
+                document.getElementById('auth-feedback').textContent='Profile sync failed: '+error.message;
+            }
+        }
+
+        document.getElementById('operazon-auth-form').addEventListener('submit',async (event)=>{
+            event.preventDefault();
+            const email=document.getElementById('auth-email').value.trim();
+            const password=document.getElementById('auth-password').value;
+            const displayName=document.getElementById('auth-display-name').value.trim();
+            const username=document.getElementById('auth-username').value.trim().toLowerCase();
+            const submit=document.getElementById('auth-submit');
+            const feedback=document.getElementById('auth-feedback');
+            submit.disabled=true; submit.textContent='Please wait...'; feedback.textContent='Connecting securely...';
+            try {
+                let result;
+                if(operazonAuthMode==='signup') {
+                    if(!/^[a-z0-9._]{3,30}$/.test(username)) throw new Error('Username must be 3–30 chars.');
+                    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email.');
+                    result=await operazonSupabase.auth.signUp({email,password,options:{data:{display_name:displayName,username}}});
+                    if(result.error) throw result.error;
+                    if(result.data.session) {
+                        await syncOperazonProfile(result.data.user,displayName);
+                        updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('Account created');
+                    } else {
+                        feedback.textContent='Account created. Check your Gmail to confirm it.';
+                    }
+                } else {
+                    const loginId=email.trim();
+                    if(loginId.includes('@')) {
+                        result=await operazonSupabase.auth.signInWithPassword({email:loginId,password});
+                        if(result.error) throw result.error;
+                        await syncOperazonProfile(result.data.user);
+                    } else {
+                        const {data:loginData,error:loginError}=await operazonSupabase.functions.invoke('username-login',{body:{username:loginId,password}});
+                        if(loginError) throw loginError;
+                        const {data:sessionData,error:sessionError}=await operazonSupabase.auth.setSession({access_token:loginData.access_token,refresh_token:loginData.refresh_token});
+                        if(sessionError) throw sessionError;
+                        result={data:{user:sessionData.user}};
+                        await syncOperazonProfile(result.data.user);
+                    }
+                    updateOperazonAccountUI(result.data.user); closeAccountAuth(); showToast('Welcome back');
+                }
+            } catch(error) {
+                feedback.textContent=(error.message||'Error').replace('User already registered','Email already registered. Try signing in.');
+            } finally {
+                submit.disabled=false; submit.textContent=operazonAuthMode==='signup'?'Create account':'Sign in';
+            }
+        });
+
+        async function operazonSignOut() {
+            const {error}=await operazonSupabase.auth.signOut();
+            if(error) { showToast(error.message); return; }
+            updateOperazonAccountUI(null); closeSettingsDrawer(); showToast('Signed out');
+        }
+
+        operazonSupabase.auth.onAuthStateChange((event,session)=>{
+            const user=session?.user||null; updateOperazonAccountUI(user);
+            if(user && event==='SIGNED_IN') setTimeout(()=>syncOperazonProfile(user),0);
+        });
+        operazonSupabase.auth.getSession().then(({data,error})=>{
+            const user=data?.session?.user||null; updateOperazonAccountUI(user);
+            if(user) syncOperazonProfile(user);
+        });
+
+
+        // --- 2. CORE MUSIC & VIDEO DATASET ---
+        let tracks = [
+            { id: 1, title: 'Neon Pulse Overdrive (Official 4K)', artist: 'kairo', genre: 'Electronic', views: '1.2M views • 2d ago', likes: 12400, liked: false, accent: '#FF2A85', thumb: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop', caption: 'The sound of a new generation.', reelCaption: 'POV: Driving through Neo-Tokyo', notes: ['F#3', 'A3', 'C#4', 'E4', 'F#4'], comments: [{ user: 'synth_queen', text: 'That bass drop is pure cinema!' }] },
+            { id: 2, title: 'Velvet Skyline (Rooftop Live)', artist: 'maya', genre: 'Indie', views: '856K views • 5d ago', likes: 8920, liked: true, accent: '#06B6D4', thumb: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=900&auto=format&fit=crop', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=120&auto=format&fit=crop', caption: 'One-take sunset session.', reelCaption: 'One-take rooftop vocal session ✨', notes: ['C4', 'E4', 'G4', 'B4', 'D5'], comments: [{ user: 'indie_soul', text: 'Golden hour cinematography + live vocals = perfection.' }] },
+            { id: 3, title: '808 Cyber Samurai (Visualizer)', artist: 'drift', genre: 'Hip-Hop', views: '430K views • 1w ago', likes: 19300, liked: false, accent: '#8B5CF6', thumb: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=900&auto=format&fit=crop', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=120&auto=format&fit=crop', caption: 'Turn the subwoofers up.', reelCaption: 'When the 808 distortion hits 👀', notes: ['D3', 'F3', 'A3', 'C4', 'D4'], comments: [] },
+            { id: 4, title: 'Lagos Midnight Rhythm', artist: 'temi', genre: 'Afrobeats', views: '940K views • 3d ago', likes: 15100, liked: false, accent: '#F59E0B', thumb: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=900&auto=format&fit=crop', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120&auto=format&fit=crop', caption: 'Summer frequencies.', reelCaption: 'Tag your dance crew on this beat 🔥', notes: ['E3', 'G#3', 'B3', 'D#4', 'E4'], comments: [] }
+        ];
+
+        let playlists = [
+            { title: 'Midnight Cyber Drive', count: '24 tracks', gradient: 'from-operaPink to-operaViolet' },
+            { title: 'Afro-Fusion 2026', count: '18 tracks', gradient: 'from-amber-500 to-operaPink' },
+            { title: 'Rooftop Acoustic', count: '31 tracks', gradient: 'from-operaCyan to-blue-600' },
+            { title: 'Heavy 808s & Bass', count: '15 tracks', gradient: 'from-operaViolet to-indigo-700' }
+        ];
+
+        let activeTrackIndex = 0;
+        let isPlaying = false;
+        let activeCommentTrackId = 1;
+
+        // --- Tone.js Audio Engine ---
+        let synth = null;
+        let loopEvent = null;
+        let step = 0;
+
+        async function togglePlayback(forcePlay = null) {
+            const target = forcePlay !== null ? forcePlay : !isPlaying;
+            if (target) {
+                try {
+                    await Tone.start();
+                    if (!synth) {
+                        const reverb = new Tone.Reverb({ decay: 2.2, wet: 0.3 }).toDestination();
+                        synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.04, decay: 0.25, sustain: 0.2, release: 0.8 }, volume: -12 }).connect(reverb);
+                    }
+                    if (!loopEvent) {
+                        loopEvent = new Tone.Loop((time) => {
+                            const track = tracks[activeTrackIndex];
+                            synth.triggerAttackRelease(track.notes[step % track.notes.length], '8n', time);
+                            step++;
+                        }, '8n').start(0);
+                    }
+                    Tone.Transport.start();
+                } catch (e) {}
+                isPlaying = true;
+            } else {
+                if (Tone.Transport.state === 'started') Tone.Transport.pause();
+                isPlaying = false;
+            }
+            syncPlayIcons();
+        }
+
+        function syncPlayIcons() {
+            const icon = isPlaying ? 'pause' : 'play';
+            document.getElementById('mini-play-icon').setAttribute('data-lucide', icon);
+            document.getElementById('sheet-play-icon').setAttribute('data-lucide', icon);
+            const disc = document.getElementById('vinyl-disc');
+            if (disc) { isPlaying ? disc.classList.remove('paused-spin') : disc.classList.add('paused-spin'); }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function formatNum(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString(); }
+
+        function showToast(msg) {
+            const box = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'px-4 py-2.5 rounded-full bg-appElevated/95 border border-operaPink/50 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-opacity duration-300';
+            el.textContent = msg; box.appendChild(el);
+            setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2200);
+        }
+
+        // --- Tab Switching ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.app-tab-view').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById('tab-' + tabName);
+            if (target) target.classList.remove('hidden');
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+                const active = btn.dataset.tab === tabName;
+                btn.className = active ? 'nav-tab-btn flex items-center justify-center text-white cursor-pointer w-12 h-11' : 'nav-tab-btn flex items-center justify-center text-zinc-500 hover:text-zinc-200 cursor-pointer w-12 h-11';
+            });
+        }
+        function toggleHeaderMenu() { document.getElementById('header-dropdown-menu').classList.toggle('hidden'); }
+        function selectHeaderFeed(tabName, label) { document.getElementById('header-brand-label').textContent = label; document.getElementById('header-dropdown-menu').classList.add('hidden'); switchTab(tabName); }
+        document.querySelectorAll('.nav-tab-btn').forEach(btn => { btn.addEventListener('click', () => switchTab(btn.dataset.tab)); });
+
+        // --- Select & Play Track ---
+        function selectTrack(id, autoPlay = true, openSheet = false) {
+            const idx = tracks.findIndex(t => t.id === id);
+            if (idx === -1) return;
+            activeTrackIndex = idx;
+            const t = tracks[idx];
+            document.getElementById('mini-thumb').src = t.thumb;
+            document.getElementById('mini-title').textContent = t.title;
+            document.getElementById('mini-artist').textContent = `${t.artist} • Tap to expand`;
+            document.getElementById('sheet-title').textContent = t.title;
+            document.getElementById('sheet-artist').textContent = `${t.artist} • ${t.genre}`;
+            document.getElementById('sheet-cover-img').src = t.thumb;
+            if (autoPlay) togglePlayback(true);
+            if (openSheet) openFullPlayer();
+        }
+        function playAudioMode(id) { selectTrack(id, true, true); setSheetExp('audio'); }
+        function nextTrack() { selectTrack(tracks[(activeTrackIndex + 1) % tracks.length].id, true); }
+        function prevTrack() { selectTrack(tracks[(activeTrackIndex - 1 + tracks.length) % tracks.length].id, true); }
+
+        // --- Render Feed & Reels ---
+        function renderHomeFeed(filterText = '') {
+            const list = document.getElementById('home-feed-list');
+            const filtered = tracks.filter(t => t.title.toLowerCase().includes(filterText.toLowerCase()) || t.artist.toLowerCase().includes(filterText.toLowerCase()));
+            list.innerHTML = filtered.map(t => `
+                <article class="py-3.5 space-y-2.5 bg-[#0B0E11]">
+                    <div class="px-3.5 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <button data-story-user="${t.artist.toLowerCase()}" onclick="openUserStoryByName('${t.artist}')" class="story-ring p-[2px] rounded-full shrink-0"><span class="block p-[2px] rounded-full bg-[#0B0E11]"><img src="${t.avatar}" class="w-9 h-9 rounded-full object-cover block"></span></button>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1"><button onclick="openUserProfileByName('${t.artist}')" class="font-bold text-[14px] text-white truncate">${t.artist}</button><i data-lucide="badge-check" class="w-4 h-4 text-[#0095F6]"></i></div>
+                                <div class="text-[12px] text-zinc-300 font-medium truncate"><span class="views-time-ticker" data-views="${t.views.split('•')[0].trim()}" data-time="${(t.views.split('•')[1] || 'Just now').trim().toUpperCase().replace('AGO', 'ago')}">${t.views.split('•')[0].trim()}</span></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">${isFollowing(t.artist.toLowerCase()) ? '' : `<button onclick="toggleFollow('${t.artist.toLowerCase()}')" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[12px] font-semibold text-white">Follow</button>`}</div>
+                    </div>
+                    <div onclick="selectTrack(${t.id}, true, true)" class="relative aspect-video w-full bg-black overflow-hidden cursor-pointer group">
+                        <img src="${t.thumb}" class="w-full h-full object-cover group-active:scale-105 transition-transform duration-300">
+                        <div class="absolute inset-0 bg-black/20 flex items-center justify-center"><div class="w-12 h-12 rounded-full bg-black/70 backdrop-blur-md border border-white/25 flex items-center justify-center text-white"><i data-lucide="play" class="w-5 h-5 fill-current ml-0.5"></i></div></div>
+                        <span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-mono font-bold text-white">4K &bull; 2:48</span>
+                    </div>
+                    <div class="px-3.5 pt-0.5 flex items-center justify-between gap-2">
+                        <div class="text-[13px] font-bold text-white truncate">${t.title.replace(/\s*\(.*?\)/, '')} <span class="text-zinc-500 mx-1">|</span> <span class="text-white font-semibold">${t.artist}</span></div>
+                        <button onclick="playAudioMode(${t.id})" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-operaCyan/15 border border-operaCyan/35 text-operaCyan text-[11px] font-bold"><i data-lucide="headphones" class="w-3.5 h-3.5"></i><span>Audio</span></button>
+                    </div>
+                </article>`).join('');
+            applyViewedStoryRings(); if (window.lucide) lucide.createIcons();
+        }
+
+        function renderReels() {
+            const container = document.getElementById('tab-reels');
+            container.innerHTML = tracks.map(t => `
+                <div class="reel-snap-item relative w-full h-full bg-black flex flex-col justify-between p-4 overflow-hidden">
+                    <img src="${t.thumb}" class="absolute inset-0 w-full h-full object-cover opacity-70">
+                    <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
+                    <div class="relative z-10 flex justify-between items-center">
+                        <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">Reels &bull; ${t.genre}</span>
+                        <button onclick="playAudioMode(${t.id})" class="px-3 py-1 rounded-full bg-operaPink text-white text-[11px] font-bold">Play Audio</button>
+                    </div>
+                    <div class="relative z-10 flex items-end justify-between gap-3 pb-16">
+                        <div class="space-y-2 max-w-[78%]">
+                            <div class="flex items-center gap-2"><button data-story-user="${t.artist.toLowerCase()}" onclick="openUserStoryByName('${t.artist}')" class="story-ring p-[2px] rounded-full"><img src="${t.avatar}" class="w-8 h-8 rounded-full border-2 border-black object-cover"></button><button onclick="openUserProfileByName('${t.artist}')" class="font-bold text-xs text-white">${t.artist}</button></div>
+                            <p class="text-xs font-medium text-white drop-shadow">${t.reelCaption}</p>
+                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-[10px] text-white"><i data-lucide="music" class="w-3 h-3 text-operaCyan"></i><span class="truncate">${t.title}</span></div>
+                        </div>
+                        <div class="flex flex-col items-center gap-4">
+                            <button onclick="toggleTrackLike(${t.id})" class="flex flex-col items-center gap-1 text-white"><i data-lucide="heart" class="w-6 h-6 ${t.liked ? 'text-operaPink fill-current' : ''}"></i><span class="text-[10px] font-bold">${formatNum(t.likes)}</span></button>
+                            <button onclick="openCommentsDrawer(${t.id})" class="flex flex-col items-center gap-1 text-white"><i data-lucide="message-circle" class="w-6 h-6"></i><span class="text-[10px] font-bold">${t.comments.length}</span></button>
+                        </div>
+                    </div>
+                </div>`).join('');
+            applyViewedStoryRings(); if (window.lucide) lucide.createIcons();
+        }
+
+        // --- Search & Explore ---
+        let universalSearchFilter = 'all';
+        function searchEscape(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+        function setUniversalSearchFilter(filter) { universalSearchFilter = filter; renderUniversalSearch(document.getElementById('app-search-input')?.value || ''); }
+        function renderUniversalSearch(rawQuery = '') {
+            const query = String(rawQuery).trim().toLowerCase(); const panel = document.getElementById('universal-search-results'); const discovery = document.getElementById('explore-discovery-content');
+            if (!panel || !discovery) return;
+            if (!query) { panel.classList.add('hidden'); panel.innerHTML = ''; discovery.classList.remove('hidden'); return; }
+            panel.classList.remove('hidden'); discovery.classList.add('hidden');
+            const users = dmProfilesCache.filter(u => `${u.name} ${u.handle || ''}`.toLowerCase().includes(query));
+            const artistMap = new Map(); tracks.forEach(t => { const key = t.artist.toLowerCase(); if (!artistMap.has(key)) artistMap.set(key, t); });
+            const artists = [...artistMap.values()].filter(t => `${t.artist} ${t.genre || ''}`.toLowerCase().includes(query));
+            const songs = tracks.filter(t => `${t.title} ${t.artist} ${t.genre || ''}`.toLowerCase().includes(query));
+            const tabs = [['all','All'],['users','Users'],['artists','Artists'],['songs','Songs']]; const counts = {users:users.length,artists:artists.length,songs:songs.length};
+            const tabHtml = tabs.map(([key,label]) => `<button onclick="setUniversalSearchFilter('${key}')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${universalSearchFilter===key?'bg-operaPink text-white':'bg-white/5 text-zinc-300 border border-white/10'}">${label}${key==='all'?'':` (${counts[key]})`}</button>`).join('');
+            const userRows = users.map(u => `<button onclick="openUserProfile('${searchEscape(u.id)}')" class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 text-left"><img src="${searchEscape(u.avatar)}" class="w-10 h-10 rounded-full object-cover bg-white/10"><span class="min-w-0 flex-1"><span class="block text-sm font-semibold text-white truncate">${searchEscape(u.name)}</span><span class="block text-xs text-zinc-400 truncate">${searchEscape(u.handle || '@'+u.id)} · User</span></span><i data-lucide="user-round" class="w-4 h-4 text-zinc-400"></i></button>`).join('');
+            const artistRows = artists.map(t => `<button onclick="openUserProfileByName('${searchEscape(t.artist)}')" class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 text-left"><img src="${searchEscape(t.avatar)}" class="w-10 h-10 rounded-full object-cover bg-white/10"><span class="min-w-0 flex-1"><span class="block text-sm font-semibold text-white truncate">${searchEscape(t.artist)}</span><span class="block text-xs text-zinc-400">Artist · ${searchEscape(t.genre || 'Music creator')}</span></span><i data-lucide="mic-2" class="w-4 h-4 text-operaCyan"></i></button>`).join('');
+            const songRows = songs.map(t => `<button onclick="selectTrack(${Number(t.id)},true,true)" class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 text-left"><img src="${searchEscape(t.thumb)}" class="w-12 h-12 rounded-lg object-cover bg-white/10"><span class="min-w-0 flex-1"><span class="block text-sm font-semibold text-white truncate">${searchEscape(t.title)}</span><span class="block text-xs text-zinc-400 truncate">${searchEscape(t.artist)} · ${searchEscape(t.genre || 'Song')}</span></span><i data-lucide="play-circle" class="w-5 h-5 text-operaPink"></i></button>`).join('');
+            const sections = [];
+            if (universalSearchFilter==='all' || universalSearchFilter==='users') sections.push(`<section><h3 class="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Users (${users.length})</h3>${userRows || '<p class="text-xs text-zinc-500 p-2">No matching users.</p>'}</section>`);
+            if (universalSearchFilter==='all' || universalSearchFilter==='artists') sections.push(`<section><h3 class="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Artists (${artists.length})</h3>${artistRows || '<p class="text-xs text-zinc-500 p-2">No matching artists.</p>'}</section>`);
+            if (universalSearchFilter==='all' || universalSearchFilter==='songs') sections.push(`<section><h3 class="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Songs (${songs.length})</h3>${songRows || '<p class="text-xs text-zinc-500 p-2">No matching songs.</p>'}</section>`);
+            panel.innerHTML = `<div class="flex flex-wrap gap-2">${tabHtml}</div>${sections.join('')}`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderExploreAndLibrary() {
+            document.getElementById('explore-playlists').innerHTML = playlists.map(p => `<div onclick="selectTrack(1, true, true)" class="p-3.5 rounded-2xl bg-gradient-to-br ${p.gradient} space-y-1 cursor-pointer"><div class="font-display font-bold text-xs text-white">${p.title}</div><div class="text-[10px] text-white/80">${p.count}</div></div>`).join('');
+            const gridHTML = tracks.concat(tracks).slice(0, 6).map(t => `<div onclick="selectTrack(${t.id}, true, true)" class="aspect-square bg-zinc-900 relative overflow-hidden cursor-pointer"><img src="${t.thumb}" class="w-full h-full object-cover"></div>`).join('');
+            document.getElementById('explore-grid').innerHTML = gridHTML; document.getElementById('profile-media-grid').innerHTML = gridHTML;
+            document.getElementById('library-playlists-list').innerHTML = playlists.map(p => `<div onclick="selectTrack(1, true, true)" class="p-3 rounded-2xl bg-appSurface border border-white/10 flex items-center gap-3 cursor-pointer"><div class="w-11 h-11 rounded-xl bg-gradient-to-br ${p.gradient} flex items-center justify-center shrink-0"><i data-lucide="list-music" class="w-5 h-5 text-white"></i></div><div><div class="font-bold text-xs text-white">${p.title}</div><div class="text-[11px] text-zinc-400">${p.count} &bull; Multi-format</div></div></div>`).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function createNewPlaylist() { playlists.unshift({ title: 'Custom Mix #' + (playlists.length + 1), count: tracks.length + ' tracks', gradient: 'from-operaCyan to-operaViolet' }); renderExploreAndLibrary(); showToast('New playlist added!'); }
+        function toggleTrackLike(id) { const t = tracks.find(x => x.id === id); if (!t) return; t.liked = !t.liked; t.likes += t.liked ? 1 : -1; renderHomeFeed(); applyViewedStoryRings(); renderReels(); }
+        function toggleActiveLike() { toggleTrackLike(tracks[activeTrackIndex].id); showToast('Updated liked tracks'); }
+        function openFullPlayer() { document.getElementById('full-player-sheet').classList.remove('translate-y-full'); resizeSheetCanvas(); }
+        function closeFullPlayer() { document.getElementById('full-player-sheet').classList.add('translate-y-full'); }
+        function setSheetExp(mode) { document.querySelectorAll('.sheet-exp-btn').forEach(b => { b.className = b.dataset.exp === mode ? 'sheet-exp-btn px-3 py-1 rounded-full bg-operaViolet text-white cursor-pointer' : 'sheet-exp-btn px-3 py-1 rounded-full text-zinc-400 cursor-pointer'; }); const audioBadge = document.getElementById('sheet-audio-badge'); mode === 'audio' ? audioBadge.classList.remove('hidden') : audioBadge.classList.add('hidden'); }
+        document.querySelectorAll('.sheet-exp-btn').forEach(b => b.addEventListener('click', () => setSheetExp(b.dataset.exp)));
+        function openCreateModal() { const d = document.getElementById('create-drawer'); d.classList.remove('hidden'); d.classList.add('flex'); }
+        function closeCreateModal() { const d = document.getElementById('create-drawer'); d.classList.add('hidden'); d.classList.remove('flex'); }
+
+        document.getElementById('create-track-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!operazonCurrentUser) { showToast('You must sign in to upload!'); openAccountAuth(); return; }
+            const btn = document.getElementById('drop-submit-btn'); const originalBtnText = btn.textContent;
+            const title = document.getElementById('drop-title').value.trim(); const artist = document.getElementById('drop-artist').value.trim() || 'eftakar'; const genre = document.getElementById('drop-genre').value; const fileInput = document.getElementById('drop-file'); const file = fileInput.files[0];
+            let uploadedFileUrl = ''; let bucketName = 'music'; btn.disabled = true; btn.textContent = 'Uploading... Please wait...';
+            try {
+                if (file) {
+                    if (file.type.startsWith('video/')) bucketName = 'videos'; else if (file.type.startsWith('image/')) bucketName = 'avatars';
+                    const fileExt = file.name.split('.').pop(); const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                    const { data: uploadData, error: uploadError } = await operazonSupabase.storage.from(bucketName).upload(fileName, file); if (uploadError) throw uploadError;
+                    const { data: urlData } = operazonSupabase.storage.from(bucketName).getPublicUrl(fileName); uploadedFileUrl = urlData.publicUrl;
+                }
+                const newTrack = { id: Date.now(), title, artist, genre, views: 'Just now', likes: 1, liked: true, accent: '#FF2A85', thumb: uploadedFileUrl || 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=900&auto=format&fit=crop', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop', caption: document.getElementById('drop-caption').value.trim(), reelCaption: document.getElementById('drop-caption').value.trim(), audioUrl: uploadedFileUrl, notes: ['G3', 'Bb3', 'D4', 'F4', 'G4'], comments: [] };
+                tracks.unshift(newTrack); e.target.reset(); closeCreateModal(); renderHomeFeed(); renderReels(); renderExploreAndLibrary(); selectTrack(newTrack.id, true, true); showToast('Successfully Published! 🎉');
+            } catch (error) { showToast('Upload failed: ' + error.message); } finally { btn.disabled = false; btn.textContent = originalBtnText; }
+        });
+
+        function openCommentsDrawer(trackId) { activeCommentTrackId = trackId; const t = tracks.find(x => x.id === trackId); const list = document.getElementById('drawer-comments-list'); list.innerHTML = t.comments.length ? t.comments.map(c => `<div class="p-2.5 rounded-xl bg-appElevated text-xs"><span class="font-bold text-operaCyan">${c.user}</span> <span class="text-zinc-200">${c.text}</span></div>`).join('') : `<p class="text-xs text-zinc-500 text-center py-4">No comments yet.</p>`; const d = document.getElementById('comments-drawer'); d.classList.remove('hidden'); d.classList.add('flex'); }
+        function closeCommentsDrawer() { const d = document.getElementById('comments-drawer'); d.classList.add('hidden'); d.classList.remove('flex'); }
+        document.getElementById('drawer-comment-form').addEventListener('submit', (e) => { e.preventDefault(); const inp = document.getElementById('drawer-comment-input'); const t = tracks.find(x => x.id === activeCommentTrackId); t.comments.push({ user: operazonCurrentUser ? operazonCurrentUser.email.split('@')[0] : 'guest', text: inp.value.trim() }); inp.value = ''; openCommentsDrawer(t.id); renderHomeFeed(); renderReels(); });
+
+        // --- 3. FOLLOW & STORY SYSTEM ---
+        const FOLLOWING_KEY = 'operazon_following_v1';
+        function getFollowing() { try { return JSON.parse(localStorage.getItem(FOLLOWING_KEY) || '[]'); } catch (e) { return []; } }
+        function isFollowing(id) { return getFollowing().includes(String(id).toLowerCase()); }
+        function toggleFollow(id) { const key = String(id).toLowerCase(); const following = new Set(getFollowing()); if (following.has(key)) following.delete(key); else following.add(key); try { localStorage.setItem(FOLLOWING_KEY, JSON.stringify([...following])); } catch (e) {} renderHomeFeed(); renderReels(); renderDmStoryStrip(); if (activeProfileId) syncProfileFollowButton(); showToast(following.has(key) ? 'Following ' + id : 'Unfollowed ' + id); }
+        function syncProfileFollowButton() { const b = document.getElementById('user-profile-follow'); if (!b || !activeProfileId) return; const followed = isFollowing(activeProfileId); b.textContent = 'Follow'; b.classList.toggle('hidden', followed); b.classList.toggle('bg-emerald-500', !followed); b.classList.toggle('bg-cyan-500', followed); b.classList.toggle('text-black', true); }
+
+        // --- 4. REAL-TIME MESSAGING ---
+        const dmConversations = []; const dmProfilesCache = []; 
+        let activeChatPeerId = null; let activeChatPeer = null; let activeProfileId = null; let realtimeMessagesChannel = null; const seenMessageIds = new Set();
+        const READ_KEY = 'operazon_dm_read_v1';
+        function getReadMap() { try { return JSON.parse(localStorage.getItem(READ_KEY) || '{}'); } catch { return {}; } }
+        function getLastRead(peerId) { return getReadMap()[peerId] || '1970-01-01T00:00:00Z'; }
+        function markChatRead(peerId) { const m = getReadMap(); m[peerId] = new Date().toISOString(); try { localStorage.setItem(READ_KEY, JSON.stringify(m)); } catch {} }
+        function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+        function defaultAvatarFor(id) { return `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(String(id||'user'))}`; }
+        function formatRelTime(iso) { if (!iso) return ''; const diff = (Date.now() - new Date(iso).getTime()) / 1000; if (diff < 60) return 'now'; if (diff < 3600) return Math.floor(diff/60) + 'm'; if (diff < 86400) return Math.floor(diff/3600) + 'h'; return Math.floor(diff/86400) + 'd'; }
+
+        async function fetchDmProfiles() {
+            if (!operazonCurrentUser) return [];
+            const { data, error } = await operazonSupabase.from('profiles').select('id, username, display_name, avatar_url, bio').neq('id', operazonCurrentUser.id).order('created_at', { ascending: false }).limit(200);
+            if (error) { console.error('fetch profiles error:', error); return []; }
+            const mapped = (data || []).map(p => ({ id: p.id, name: p.display_name || p.username || p.id.slice(0, 8), handle: p.username ? '@' + p.username : '', avatar: p.avatar_url || defaultAvatarFor(p.id), bio: p.bio || '' }));
+            dmProfilesCache.length = 0; dmProfilesCache.push(...mapped); return mapped;
+        }
+
+        async function fetchAllMessagesWith(peerId) {
+            if (!operazonCurrentUser) return [];
+            const me = operazonCurrentUser.id;
+            const { data, error } = await operazonSupabase.from('messages').select('id, sender_id, receiver_id, content, created_at').or(`and(sender_id.eq.${me},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${me})`).order('created_at', { ascending: true }).limit(500);
+            if (error) { console.error('fetch messages error:', error); return []; }
+            return data || [];
+        }
+
+        async function fetchInboxSummaries() {
+            if (!operazonCurrentUser) return [];
+            const me = operazonCurrentUser.id;
+            const { data, error } = await operazonSupabase.from('messages').select('id, sender_id, receiver_id, content, created_at').or(`sender_id.eq.${me},receiver_id.eq.${me}`).order('created_at', { ascending: false }).limit(1000);
+            if (error) { console.error('inbox fetch error:', error); return []; }
+            const byPeer = new Map(); const readMap = getReadMap();
+            for (const m of data) {
+                const peer = m.sender_id === me ? m.receiver_id : m.sender_id;
+                if (!byPeer.has(peer)) byPeer.set(peer, { peerId: peer, last: m, unread: 0 });
+                const entry = byPeer.get(peer);
+                if (m.sender_id !== me) { const lastRead = readMap[peer] || '1970-01-01T00:00:00Z'; if (m.created_at > lastRead) entry.unread++; }
+            }
+            return Array.from(byPeer.values());
+        }
+
+        async function insertMessage(peerId, content) {
+            const trimmed = String(content || '').trim(); if (!trimmed) return false;
+            if (!operazonCurrentUser) { showToast('Sign in to send messages'); openAccountAuth(); return false; }
+            const { error } = await operazonSupabase.from('messages').insert({ sender_id: operazonCurrentUser.id, receiver_id: peerId, content: trimmed });
+            if (error) { console.error('send error', error); showToast('Send failed: ' + error.message); return false; }
+            return true;
+        }
+
+        function setupRealtimeSubscription() {
+            if (realtimeMessagesChannel) { try { operazonSupabase.removeChannel(realtimeMessagesChannel); } catch {} realtimeMessagesChannel = null; }
+            if (!operazonCurrentUser) return;
+            realtimeMessagesChannel = operazonSupabase.channel('operazon-messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                const m = payload.new; const me = operazonCurrentUser?.id;
+                if (!me || (m.sender_id !== me && m.receiver_id !== me)) return;
+                const peer = m.sender_id === me ? m.receiver_id : m.sender_id;
+                if (activeChatPeerId && (peer === activeChatPeerId)) {
+                    appendMessageBubble(m); scrollChatToBottom(); if (m.sender_id === activeChatPeerId) markChatRead(activeChatPeerId);
+                } else if (m.sender_id !== me) {
+                    showToast('New message received');
+                }
+                renderDmInbox();
+            }).subscribe((status) => { console.log('[realtime]', status); });
+        }
+
+        function appendMessageBubble(m) {
+            if (!m || seenMessageIds.has(m.id)) return;
+            seenMessageIds.add(m.id);
+            const box = document.getElementById('drawer-dm-messages'); if (!box) return;
+            const ph = box.querySelector('.dm-empty-placeholder'); if (ph) ph.remove();
+            const me = operazonCurrentUser?.id; const mine = m.sender_id === me;
+            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const div = document.createElement('div');
+            div.className = `flex ${mine ? 'justify-end' : 'justify-start'}`;
+            div.innerHTML = `<div class="max-w-[78%] px-4 py-2.5 rounded-2xl ${mine ? 'bg-gradient-to-r from-operaPink to-operaViolet text-white rounded-br-md' : 'bg-appElevated text-zinc-100 rounded-bl-md'}"><div class="text-sm whitespace-pre-wrap break-words">${escapeHtml(m.content)}</div><div class="text-[10px] ${mine ? 'text-white/70' : 'text-zinc-500'} mt-1 text-right">${time}</div></div>`;
+            box.appendChild(div);
+        }
+
+        function scrollChatToBottom() { const box = document.getElementById('drawer-dm-messages'); if (box) box.scrollTop = box.scrollHeight; }
+
+        function updateDmAccountButton() {
+            const btn = document.getElementById('dm-account-btn'); if (!btn) return;
+            if (operazonCurrentUser) {
+                btn.textContent = 'Sign out'; btn.onclick = async () => { await operazonSignOut(); renderDmInbox(); };
+                btn.className = 'text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-300';
+            } else {
+                btn.textContent = 'Sign in'; btn.onclick = () => openAccountAuth();
+                btn.className = 'text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-white/10 text-zinc-200';
+            }
+        }
+
+        async function renderDmInbox() {
+            updateDmAccountButton(); renderDmStoryStrip();
+            const list = document.getElementById('dm-conversation-list'); if (!list) return;
+            if (!operazonCurrentUser) {
+                list.innerHTML = `<div class="p-8 text-center space-y-3"><div class="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="lock" class="w-7 h-7 text-zinc-500"></i></div><p class="text-sm font-semibold text-white">Sign in to send messages</p><p class="text-xs text-zinc-400 max-w-xs mx-auto">Create an account or sign in to chat with other OPERAZON creators in real time.</p><button onclick="openAccountAuth()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-operaPink to-operaViolet text-white font-bold text-xs">Sign in / Create account</button></div>`;
+                if (window.lucide) lucide.createIcons(); return;
+            }
+            list.innerHTML = `<div class="p-6 text-center text-xs text-zinc-500">Loading…</div>`;
+            const [summaries, profiles] = await Promise.all([fetchInboxSummaries(), fetchDmProfiles()]);
+            const profileMap = new Map(profiles.map(p => [p.id, p]));
+            const q = (document.getElementById('dm-search')?.value || '').trim().toLowerCase();
+            const rows = []; const seen = new Set();
+            for (const s of summaries) {
+                const p = profileMap.get(s.peerId) || { id: s.peerId, name: 'User ' + s.peerId.slice(0, 6), handle: '', avatar: defaultAvatarFor(s.peerId), bio: '' };
+                if (q && !(p.name + ' ' + p.handle).toLowerCase().includes(q)) continue;
+                rows.push({ ...p, last: s.last, unread: s.unread }); seen.add(s.peerId);
+            }
+            for (const p of profiles) { if (seen.has(p.id)) continue; if (q && !(p.name + ' ' + p.handle).toLowerCase().includes(q)) continue; rows.push({ ...p, last: null, unread: 0 }); }
+            if (!rows.length) { list.innerHTML = `<p class="p-8 text-center text-sm text-zinc-500">No users yet. When another account signs up, they'll appear here.</p>`; if (window.lucide) lucide.createIcons(); return; }
+            
+            list.innerHTML = rows.map(r => {
+                const lastText = r.last ? (r.last.sender_id === operazonCurrentUser.id ? 'You: ' : '') + escapeHtml(r.last.content) : '<span class="italic">Start a conversation</span>';
+                const time = r.last ? formatRelTime(r.last.created_at) : '';
+                const bold = r.unread > 0 ? 'font-extrabold text-white' : 'font-semibold text-zinc-200';
+                return `<div class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5"><button onclick="openUserProfile('${r.id}')" class="shrink-0"><img src="${escapeHtml(r.avatar)}" alt="" class="w-14 h-14 rounded-full object-cover bg-white/10"/></button><div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><button onclick="openDmChatReal('${r.id}')" class="text-sm ${bold} truncate text-left">${escapeHtml(r.name)}</button><span class="text-[10px] text-zinc-500 shrink-0">${time}</span></div><button onclick="openDmChatReal('${r.id}')" class="flex items-center gap-1 w-full text-left"><p class="text-xs ${r.unread>0?'text-white font-semibold':'text-zinc-400'} truncate">${lastText}</p>${r.unread>0?`<span class="px-1.5 py-0.5 rounded-full bg-operaPink text-white text-[10px] font-bold shrink-0">${r.unread}</span>`:''}</button></div></div>`;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function openDmChatReal(peerId) {
+            if (!operazonCurrentUser) { openAccountAuth(); return; }
+            activeChatPeerId = peerId;
+            if (!dmProfilesCache.length) await fetchDmProfiles();
+            activeChatPeer = dmProfilesCache.find(p => p.id === peerId) || { id: peerId, name: 'User', handle: '', avatar: defaultAvatarFor(peerId) };
+            document.getElementById('dm-inbox-view').classList.add('hidden');
+            const chat = document.getElementById('dm-chat-view'); chat.classList.remove('hidden'); chat.classList.add('flex');
+            document.getElementById('dm-chat-avatar').src = activeChatPeer.avatar; document.getElementById('dm-chat-name').textContent = activeChatPeer.name; document.getElementById('dm-chat-status').textContent = activeChatPeer.handle || 'Connected';
+            document.getElementById('dm-chat-story-trigger').setAttribute('data-story-user', peerId);
+            const box = document.getElementById('drawer-dm-messages'); box.innerHTML = '<div class="text-center text-xs text-zinc-500 py-6">Loading messages…</div>'; seenMessageIds.clear();
+            const messages = await fetchAllMessagesWith(peerId);
+            box.innerHTML = ''; if (!messages.length) box.innerHTML = '<div class="dm-empty-placeholder text-center text-xs text-zinc-500 py-8">No messages yet. Say hi 👋</div>'; else { for (const m of messages) appendMessageBubble(m); }
+            markChatRead(peerId); scrollChatToBottom(); if (window.lucide) lucide.createIcons();
+        }
+
+        function backToDmInbox() { document.getElementById('dm-chat-view').classList.add('hidden'); document.getElementById('dm-chat-view').classList.remove('flex'); document.getElementById('dm-inbox-view').classList.remove('hidden'); activeChatPeerId = null; activeChatPeer = null; renderDmInbox(); }
+        function startNewDm() { const q = document.getElementById('dm-search'); if (q) { q.placeholder = 'Search people to message'; q.focus(); } if (!operazonCurrentUser) { openAccountAuth(); return; } renderDmInbox(); }
+
+        function getSocialUser(id) {
+            const c = dmConversations.find(x => x.id === id); if (c) return c;
+            const p = dmProfilesCache.find(x => x.id === id); if (p) return { id: p.id, name: p.name, handle: p.handle, avatar: p.avatar, active: false, bio: p.bio };
+            const t = tracks.find(x => x.artist.toLowerCase() === String(id).toLowerCase());
+            if (t) return { id: t.artist.toLowerCase(), name: t.artist, handle: '@' + t.artist, avatar: t.avatar, active: false };
+            return { id, name: String(id), handle: '@' + String(id), avatar: defaultAvatarFor(id), active: false };
+        }
+
+        // --- STORY SYSTEM ---
+        const STORY_VIEWED_KEY = 'operazon_viewed_stories_v1';
+        function getViewedStories(){try{return JSON.parse(localStorage.getItem(STORY_VIEWED_KEY)||'[]')}catch(e){return []}}
+        function isStoryViewed(id){return getViewedStories().includes(String(id).toLowerCase())}
+        function canonicalStoryId(id) { const raw = String(id || '').toLowerCase(); const user = dmConversations.find(c => c.id.toLowerCase() === raw || c.name.toLowerCase() === raw); if (user) return user.id.toLowerCase(); const p = dmProfilesCache.find(x => x.id === id); if (p) return String(id).toLowerCase(); const track = tracks.find(t => t.artist.toLowerCase() === raw); return track ? track.artist.toLowerCase() : raw; }
+        function applyViewedStoryRings(){ document.querySelectorAll('[data-story-user]').forEach(el=>{ const id=canonicalStoryId(el.getAttribute('data-story-user')); const viewed=!!id && isStoryViewed(id); el.classList.toggle('story-viewed',viewed); el.querySelectorAll('.story-ring').forEach(ring=>ring.classList.toggle('story-viewed',viewed)); }); }
+        function markStoryViewed(id){ const key=canonicalStoryId(id); try{const viewed=new Set(getViewedStories());viewed.add(key);localStorage.setItem(STORY_VIEWED_KEY,JSON.stringify([...viewed]));}catch(e){} applyViewedStoryRings(); renderDmStoryStrip(); }
+        function openUserStory(id){ const u=getSocialUser(id); markStoryViewed(u.id); document.getElementById('story-image').src=(tracks.find(t=>t.artist.toLowerCase()===u.name.toLowerCase())||tracks[0]).thumb; document.getElementById('story-avatar').src=u.avatar; document.getElementById('story-name').textContent=u.name; const el=document.getElementById('story-viewer');el.classList.remove('hidden');el.classList.add('flex'); if(window.lucide)lucide.createIcons(); }
+        function openUserStoryByName(name){ const u=dmConversations.find(c=>c.name.toLowerCase()===name.toLowerCase()||c.id===name.toLowerCase()); openUserStory(u?u.id:name.toLowerCase()); }
+        function closeUserStory(){const el=document.getElementById('story-viewer');el.classList.add('hidden');el.classList.remove('flex');}
+
+        function renderDmStoryStrip() {
+            const strip=document.getElementById('dm-story-strip'); if(!strip) return;
+            const users=[];
+            getFollowing().forEach(rawId=>{ const id=canonicalStoryId(rawId); if(!id || isStoryViewed(id) || users.some(u=>u.id===id)) return; let user=dmConversations.find(c=>c.id.toLowerCase()===id) || dmProfilesCache.find(p=>p.id===id); if(!user){ const track=tracks.find(t=>t.artist.toLowerCase()===id); if(track) user={id,name:track.artist,handle:'@'+track.artist.toLowerCase().replace(/\s+/g,''),avatar:track.avatar}; } if(user) users.push(user); });
+            strip.innerHTML=users.map(u=>`<button data-story-user="${u.id}" onclick="openUserStory('${u.id}')" class="shrink-0 w-14 text-center"><div class="w-14 h-14 rounded-full p-[2px] story-ring"><img class="w-full h-full rounded-full object-cover border-2 border-appSurface" src="${u.avatar}" alt="${escapeHtml(u.name)}" /></div><p class="text-[10px] text-zinc-300 mt-1 truncate">${escapeHtml(u.name)}</p></button>`).join('');
+            applyViewedStoryRings();
+        }
+
+        // --- PROFILE OVERLAY ---
+        function openUserProfile(id) {
+            const u=getSocialUser(id); activeProfileId=u.id;
+            const related=tracks.filter(t=>t.artist.toLowerCase()===u.name.toLowerCase());
+            document.getElementById('user-profile-header').textContent=u.handle || '@'+u.name.toLowerCase().replace(/\s+/g,'');
+            document.getElementById('user-profile-name').textContent=u.name;
+            document.getElementById('user-profile-avatar').src=u.avatar;
+            document.getElementById('user-profile-story-button').setAttribute('data-story-user',u.id);
+            document.getElementById('user-profile-story-button').classList.toggle('story-viewed',isStoryViewed(canonicalStoryId(u.id)));
+            document.getElementById('user-profile-bio').textContent=u.bio || 'Artist • Music creator • OPERAZON Creator';
+            document.getElementById('user-profile-verified').classList.add('hidden');
+            document.getElementById('user-profile-followers').textContent=u.followers || '0';
+            document.getElementById('user-profile-following').textContent=u.following || '0';
+            document.getElementById('user-profile-plays').textContent=u.plays || '0';
+            const grid=document.getElementById('user-profile-grid'); const items=related.length?related:tracks.slice(0,6);
+            grid.innerHTML=items.map(t=>`<button onclick="closeUserProfile();selectTrack(${t.id},true,true)" class="aspect-square relative overflow-hidden rounded-sm"><img src="${t.thumb}" class="w-full h-full object-cover"><span class="absolute bottom-2 right-2 text-white text-xs drop-shadow">▶</span></button>`).join('');
+            const overlay=document.getElementById('user-profile-overlay'); overlay.classList.remove('hidden'); overlay.classList.add('flex');
+            syncProfileFollowButton(); if(window.lucide) lucide.createIcons();
+        }
+        function toggleProfileFollow(){ if(activeProfileId) toggleFollow(activeProfileId); }
+        function profileDropTrack(){closeUserProfile();openCreateModal();}
+        function openUserProfileByName(name){ const u = dmProfilesCache.find(p => p.name.toLowerCase()===name.toLowerCase() || (p.handle||'').toLowerCase()==='@'+name.toLowerCase()); if (u) { openUserProfile(u.id); return; } const c=dmConversations.find(c=>c.name.toLowerCase()===name.toLowerCase()||c.id===name.toLowerCase()); openUserProfile(c?c.id:name.toLowerCase()); }
+        function closeUserProfile(){const el=document.getElementById('user-profile-overlay');el.classList.add('hidden');el.classList.remove('flex');}
+        function profileMessage(){ const id=activeProfileId; closeUserProfile(); openDmDrawer(); openDmChatReal(id); }
+
+        // --- DRAWER UTILS ---
+        function openDmDrawer() { const dot = document.getElementById('dm-dot'); if (dot) dot.classList.add('hidden'); const d = document.getElementById('dm-drawer'); d.classList.remove('hidden'); d.classList.add('flex'); backToDmInbox(); }
+        function closeDmDrawer() { const d=document.getElementById('dm-drawer'); d.classList.add('hidden'); d.classList.remove('flex'); }
+        function openSettingsDrawer() { const d = document.getElementById('settings-drawer'); d.classList.remove('hidden'); d.classList.add('flex'); }
+        function closeSettingsDrawer() { const d = document.getElementById('settings-drawer'); d.classList.add('hidden'); d.classList.remove('flex'); }
+        function openNotificationsDrawer() { const dot = document.getElementById('notif-dot'); if (dot) dot.classList.add('hidden'); const d = document.getElementById('notifications-drawer'); d.classList.remove('hidden'); d.classList.add('flex'); }
+        function closeNotificationsDrawer() { const d = document.getElementById('notifications-drawer'); d.classList.add('hidden'); d.classList.remove('flex'); }
+
+        document.getElementById('drawer-dm-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const inp = document.getElementById('drawer-dm-input'); const value = inp.value;
+            if (!value.trim() || !activeChatPeerId) return; inp.value = '';
+            const ok = await insertMessage(activeChatPeerId, value);
+            if (ok) { setTimeout(async () => { const messages = await fetchAllMessagesWith(activeChatPeerId); for (const m of messages) appendMessageBubble(m); scrollChatToBottom(); renderDmInbox(); }, 350); }
+        });
+
+        document.getElementById('app-search-input').addEventListener('input', (e) => { renderUniversalSearch(e.target.value); });
+
+        // --- Pull to refresh ---
+        const homeViewport = document.getElementById('tab-home'); const appViewport = document.getElementById('app-viewport'); const ptrIndicator = document.getElementById('ptr-indicator'); const ptrSpinner = document.getElementById('ptr-spinner');
+        let touchStartY = 0; let isPulling = false; let isRefreshing = false;
+        appViewport.addEventListener('touchstart', (e) => { if (homeViewport.classList.contains('hidden') || appViewport.scrollTop > 0) return; touchStartY = e.touches[0].clientY; isPulling = true; }, { passive: true });
+        appViewport.addEventListener('touchmove', (e) => { if (!isPulling || isRefreshing) return; const currentY = e.touches[0].clientY; const diff = currentY - touchStartY; if (diff > 0 && appViewport.scrollTop === 0) { const pullDist = Math.min(diff * 0.4, 70); ptrIndicator.style.top = `${pullDist - 36}px`; ptrSpinner.style.transform = `rotate(${pullDist * 4}deg)`; } }, { passive: true });
+        appViewport.addEventListener('touchend', (e) => { if (!isPulling || isRefreshing) return; isPulling = false; const currentTop = parseInt(ptrIndicator.style.top || '-36px'); if (currentTop > 10) { isRefreshing = true; ptrIndicator.style.top = '16px'; ptrSpinner.classList.add('ptr-spinning'); showToast('Refreshing feed...'); setTimeout(() => { tracks.sort(() => Math.random() - 0.5); renderHomeFeed(); renderReels(); ptrSpinner.classList.remove('ptr-spinning'); ptrIndicator.style.top = '-36px'; isRefreshing = false; showToast('Feed updated!'); }, 1200); } else { ptrIndicator.style.top = '-36px'; } });
+
+        // --- Visualizer & Onload ---
+        const canvas = document.getElementById('sheet-visualizer-canvas'); const ctx = canvas.getContext('2d'); let phase = 0;
+        function resizeSheetCanvas() { const rect = canvas.parentElement.getBoundingClientRect(); canvas.width = rect.width || 300; canvas.height = rect.height || 300; }
+        function animateVisualizer() {
+            phase += isPlaying ? 0.08 : 0.02; const t = tracks[activeTrackIndex]; const accent = t ? t.accent : '#FF2A85';
+            ctx.fillStyle = '#07070B'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const bars = 36; const barW = (canvas.width * 0.78) / bars; const startX = (canvas.width - bars * barW) / 2; const midY = canvas.height * 0.5;
+            for (let i = 0; i < bars; i++) { const amp = isPlaying ? 24 + Math.abs(Math.sin(i * 0.35 + phase) * Math.cos(i * 0.2 - phase)) * 110 : 10 + Math.abs(Math.sin(i * 0.3 + phase)) * 18; ctx.fillStyle = i % 2 === 0 ? accent : '#06B6D4'; ctx.beginPath(); ctx.roundRect(startX + i * barW + 1.5, midY - amp / 2, Math.max(3, barW - 3), amp, 4); ctx.fill(); }
+            requestAnimationFrame(animateVisualizer);
+        }
+
+        window.addEventListener('resize', resizeSheetCanvas);
+        window.onload = function () {
+            renderHomeFeed(); renderReels(); renderExploreAndLibrary(); resizeSheetCanvas(); if (window.lucide) lucide.createIcons(); animateVisualizer();
+            let showTimeAgo = false;
+            setInterval(() => { showTimeAgo = !showTimeAgo; document.querySelectorAll('.views-time-ticker').forEach(el => { el.textContent = showTimeAgo ? el.dataset.time : el.dataset.views; }); }, 1000);
+        };
+    </script>
+</body>
+</html>
